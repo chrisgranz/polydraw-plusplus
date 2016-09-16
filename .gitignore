@@ -1,0 +1,7 @@
+bin/
+build/
+ipch/
+doc/html/
+doc/latex/
+vs2013_projects/*.sdf
+vs2013_projects/*.opensdf
