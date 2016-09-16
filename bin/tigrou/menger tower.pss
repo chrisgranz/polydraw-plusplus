@@ -1,0 +1,124 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+gluniform1f(glgetuniformloc("yxaspect"),yres/xres);
+glcolor(klock() / 10.3, 0, 0);
+glquad();
+
+
+@vertex_shader: ================================
+varying vec4 p, c;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+}
+
+@fragment_shader: ================================
+
+varying vec4 p, c;
+
+
+vec3 rx(vec3 p, float a)
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.y = c * q.y - s * q.z;
+   p.z = s * q.y + c * q.z;
+   return p;
+}
+
+vec3 ry(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); s = sin(a);
+   p.x = c * q.x + s * q.z;
+   p.z = -s * q.x + c * q.z;
+   return p;
+}
+
+float f(vec3 p)
+{
+   
+   //p = ry(rx(p, -0.2+c.r), -0.5);
+   //p.x += 0.5 +  sin(c.r*3.1415+3.1415/2) * 0.5;
+   //p.x = mod(p.x, 1.0) - 0.5;
+
+   p += 1.0;
+   p.z += c.r;
+   p = mod(p, 2.0) - 1.0;
+
+  
+   float s = 2.1;
+
+   int n;   
+   for (n = 0; n < 10; n++)
+   {
+      p = abs(p);
+      if (p.x < p.z) p.xz = p.zx;
+      if (p.y < p.z) p.yz = p.zy;
+
+      p.x = (s + 1.0) * p.x - s;
+      p.y = (s + 1.0) * p.y - s;
+      p.z = (s + 1.0) * p.z;
+
+      if(p.z > 0.5 * s)  
+         p.z -= s;
+
+   }
+
+   return length(p) * pow(s + 1.0, float(-n));
+ 
+}
+
+vec3 light(vec3 n, vec3 l, vec3 c)
+{ 
+   l = normalize(l);
+   float la =  max(dot(n, l),0.0);
+   return c * la;
+}
+
+uniform float yxaspect;
+void main(void)
+{
+   vec3 color = vec3(0.0);
+   
+   vec3 rd = vec3(p.x, p.y*yxaspect, -1.0);
+   vec3 ro = vec3(0.0, 0.0 ,1.0);
+
+   rd = rx(rd, c.r);
+   rd = ry(rd, c.r);
+
+   float t = 0.0;   
+   for(int steps = 0; steps < 100; steps++)
+   {
+      float d = f(ro  + t * rd);
+      if(d < 0.004) 
+      {
+
+         float e = 0.001;
+         vec3 h = ro + t * rd;
+         vec3 n = vec3(f(h + vec3(e,   0.0, 0.0)) - f(h - vec3(e,   0.0, 0.0)), 
+                       f(h + vec3(0.0, e,   0.0)) - f(h - vec3(0.0, e,   0.0)), 
+                       f(h + vec3(0.0, 0.0, e))   - f(h - vec3(0.0, 0.0, e)));
+         n = normalize(n);  
+
+       
+         color = 
+           light(n, vec3( 1.0, 0.0, -1.0), vec3(1.0, 1.0, 1.0)) +
+           light(n, vec3(-1.0,-1.0,  0.0), vec3(0.0, 1.0, 1.0)) +
+           light(n, vec3(-1.0, 1.0, -1.0), vec3(1.0, 0.0, 0.0));  
+         color /= 3.0;
+         color /= max((t * t), 0.2);
+
+         break;
+      }
+      t += d * 0.5;
+   }
+   gl_FragColor = vec4(color, 1.0);
+
+}

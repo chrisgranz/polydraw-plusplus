@@ -1,0 +1,34 @@
+@v
+varying vec4 t;
+void main()
+{
+   gl_Position = ftransform();
+   t = gl_MultiTexCoord0;
+}
+
+@f
+varying vec4 t;
+uniform sampler2D tex0;
+uniform float panx;
+void main()
+{
+   float PI = atan(1.0)*4.0; if (t.x*t.x + t.y*t.y >= 1.0) discard;
+   gl_FragColor = texture2D(tex0,vec2(acos(t.x*inversesqrt(1.0-t.y*t.y))/(-PI*2.0)-panx,acos(t.y)/-PI));
+}
+
+@h
+if (numframes == 0)
+{
+   glsettex(0,"earth.jpg");
+   static hpanx; hpanx = glgetuniformloc("panx");
+}
+gluniform1f(hpanx,klock()*.1); z = mousy/yres*4;
+glbegin(GL_TRIANGLE_FAN);
+n = 12; r = 1/cos(PI/n); sc = PI*2/n;
+for(a=0;a<n;a++)
+{
+   c = cos(a*sc)*r;
+   s = sin(a*sc)*r;
+   gltexcoord(c,s); glvertex(c,-s,-z);
+}
+glEnd();

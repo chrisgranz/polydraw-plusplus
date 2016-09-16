@@ -1,0 +1,534 @@
+   //Phong shaded drawcone() using pixel shader.. by Ken Silverman
+   //Press mouse buttons to change render mode.
+   //01/10/2011: Start DRAWCONE.KC (test program for 2-hull merge algo; O(n)
+   //01/12/2011: All works except near plane clip (ugly code though)
+   //09/10/2011: completely rewrote CPU&GPU algos (now DRAWCONE2.PSS): works bug free 1stime
+static hx, hy, hz, znear = 0.01, zfar = 1000.0;
+static ipos[3] = {0,-3,-7}, irig[3] = {1,0,0}, idow[3] = {0,1,0}, ifor[3] = {0,0,1};
+enum {DRAWCONE_NOCAP0=1,DRAWCONE_NOCAP1=2,DRAWCONE_FLAT0=4,DRAWCONE_FLAT1=8,DRAWCONE_CENT=16};
+
+()
+{
+   if (numframes == 0)
+   {
+      static tim, omousx, omousy, obstatus, zoom = 1;
+      orthorotate(0,.6,0,irig,idow,ifor);
+      glswapinterval(bstatus==0); bstatus = 0;
+   }
+   otim = tim; tim = klock(); dtim = tim-otim;
+
+   if (bstatus%2)
+   {
+      mx = mousx-omousx;
+      my = mousy-omousy;
+      if ((bstatus%4)<2) orthorotate(irig[1]*.1  ,my/zoom*.01,mx/zoom*.01,irig,idow,ifor);
+                    else orthorotate(mx/zoom*-.01,my/zoom*.01,          0,irig,idow,ifor);
+   }
+
+   vx = keystatus[0xcd]-keystatus[0xcb];
+   vy = keystatus[0x52]-keystatus[0x9d];
+   vz = keystatus[0xc8]-keystatus[0xd0];
+   if ((vx || vy || vz) && (mousx >= 0) && (mousx < xres) && (mousy >= 0) && (mousy < yres))
+   {
+      f = dtim*4;
+      if (keystatus[0x2a]) f *= 1/16;
+      if (keystatus[0x36]) f *= 16/1;
+      ipos[0] += (vx*irig[0] + vy*idow[0] + vz*ifor[0])*f;
+      ipos[1] += (vx*irig[1] + vy*idow[1] + vz*ifor[1])*f;
+      ipos[2] += (vx*irig[2] + vy*idow[2] + vz*ifor[2])*f;
+   }
+   if (keystatus[0x37]) zoom *= pow(2/1,dtim);
+   if (keystatus[0xb5]) zoom *= pow(1/2,dtim);
+
+   hx = xres/2; hy = yres/2; hz = hx*zoom;
+   gluPerspective(hx/hz*atan(yres/xres)*360/PI,xres/yres,znear,zfar);
+   glsetshader(0);
+   glColor(.2,.2,.2);
+   glquad(1);
+   glsetshader(1);/*keep this outside inner loop!*/
+
+   ntim = tim;
+   if (0)
+   {
+         //Draw Goldball
+      glColor(.8,.7,.5); ainc = (1-(sqrt(5)-1)/2)*PI*2; tt = ntim*.2;
+      n = 256; nainc = (n-.5)*ainc; zmul = 2/(n*ainc);
+      for(a=nainc;a>0;a-=ainc)
+      {
+         z = a*zmul-1; r = sqrt(1-z*z);
+         x = cos(a+tt)*r; y = sin(a+tt)*r;
+         drawcone(x*-1.0,z*1.0,y*1.0,(cos(ntim*2)*.02+.04)*1.0,
+                  x*-0.8,z*0.8,y*0.8,(sin(ntim*2)*.02+.04)*0.8,0);
+      }
+   
+         //Draw 12 cube edges
+      glColor(.55,.60,.65);
+      for(u=-1;u<=1;u+=2)
+         for(v=-1;v<=1;v+=2)
+         {
+            drawcone(-1,-u,-v,.1,+1,-u,-v,.1,0);
+            drawcone(-v,-1,-u,.1,-v,+1,-u,.1,0);
+            drawcone(-u,-v,-1,.1,-u,-v,+1,.1,0);
+         }
+   
+         //Draw 8 cube verts (hack using drawcone :/)
+      glColor(.84,.78,.74);
+      for(u=-1;u<=1;u+=2)
+         for(v=-1;v<=1;v+=2)
+            for(w=-1;w<=1;w+=2)
+               drawcone(+u,+v,+w,.2,+u,+v,+w,.2,0);
+   
+         //Draw drops
+      glColor(.6,.7,.5); f = ntim*.5;
+      for(y=-1;y<=1;y+=2)   
+         for(i=0;i<4;i++)
+            drawcone(cos( i    *PI/2+f)*.4,y*.2,sin( i    *PI/2+f)*.4,-.1,
+                     cos((i+.5)*PI/2+f)*.4,y*.2,sin((i+.5)*PI/2+f)*.4,-.02,0);
+   }
+   else if (1)
+   {
+         //Rounded cones flying around torus coil
+      for(i=-128;i<128;i+=2)
+      {
+         j = i+1;
+         f = cos(i*PI*2/16+ntim)+4; ff = (i+ntim*2)*PI/128;
+         g = cos(j*PI*2/16+ntim)+4; gg = (j+ntim*2)*PI/128;
+         c = cos((i+64)*PI/128)*.125+1.0; glColor(c*.80,c*.90,c*1.0);
+         drawcone(cos(ff)*f,sin(i*PI*2/16+ntim),sin(ff)*f,.2,
+                  cos(gg)*g,sin(j*PI*2/16+ntim),sin(gg)*g,.3,0);
+      }
+
+         //Water drops flying around circle
+      for(i=-64;i<64;i+=4)
+      {
+         f = (i  )*PI*2/64+ntim;
+         g = (i+3)*PI*2/64+ntim; glColor(.75,.75,.38);
+         drawcone(cos(f)*4,0,sin(f)*4,.01,cos(g)*4,0,sin(g)*4,.25,0);
+      }
+
+         //Blue nucleus
+      glColor(.35,.70,.60); drawcone(0,0,0,1.2,0,0,0,1.2,0);
+   }
+   else
+   {
+      glColor(.35,.70,.60);
+      drawcone((mousx/xres-.5)*8, 0.0, 0.0, 1.0*sgn(.5-keystatus[0x1a]),
+                             0.0, 0.0, 0.0, 2.0*sgn(.5-keystatus[0x1b]),
+               keystatus[0x2b]*DRAWCONE_CENT);
+   }
+
+   omousx = mousx; omousy = mousy; obstatus = bstatus;
+}
+
+orthorotate (ax, ay, az, r[3], d[3], f[3])
+{
+   static r2[3], d2[3], f2[3];
+
+   cx = cos(ax); sx = sin(ax);
+   cy = cos(ay); sy = sin(ay);
+   cz = cos(az); sz = sin(az);
+
+   a = cx*cz; b = sx*sz; r2[0] = b*sy+a; f2[1] =-a*sy-b;
+   a = cx*sz; b = sx*cz; r2[1] =-a*sy+b; f2[0] = b*sy-a;
+   r2[2] = sz*cy; d2[0] =-sx*cy;
+   d2[1] = cx*cy; f2[2] = cz*cy; d2[2] = sy;
+
+   for(i=3-1;i>=0;i--)
+   {
+      ox = r[i]; oy = d[i]; oz = f[i];
+      r[i] = ox*r2[0] + oy*d2[0] + oz*f2[0];
+      d[i] = ox*r2[1] + oy*d2[1] + oz*f2[1];
+      f[i] = ox*r2[2] + oy*d2[2] + oz*f2[2];
+   }
+}
+
+getperpvec (nx, ny, nz, &ax, &ay, &az, &bx, &by, &bz)
+{
+   if (fabs(nx) < fabs(ny))
+        { f = 1/sqrt(ny^2+nz^2); ax =    0; ay = nz*f; az =-ny*f; }
+   else { f = 1/sqrt(nx^2+nz^2); ax =-nz*f; ay =    0; az = nx*f; }
+   bx = ny*az - nz*ay;
+   by = nz*ax - nx*az;
+   bz = nx*ay - ny*ax;
+   f = 1/sqrt(bx^2 + by^2 + bz^2); bx *= f; by *= f; bz *= f;
+}
+
+   //See:polydraw\ken\drawcone.kc:drawcone3() for derivation
+drawcone (px0, py0, pz0, pr0, px1, py1, pz1, pr1, flags)
+{
+   enum {PMAX=64};
+   static px[PMAX], py[PMAX], pz[PMAX], px2[PMAX], py2[PMAX];
+   static ix[4], iy[4], iz[4];
+   
+   cx = px0-ipos[0]; cy = py0-ipos[1]; cz = pz0-ipos[2];
+   px0 = cx*irig[0] + cy*irig[1] + cz*irig[2];
+   py0 = cx*idow[0] + cy*idow[1] + cz*idow[2];
+   pz0 = cx*ifor[0] + cy*ifor[1] + cz*ifor[2];
+   cx = px1-ipos[0]; cy = py1-ipos[1]; cz = pz1-ipos[2];
+   px1 = cx*irig[0] + cy*irig[1] + cz*irig[2];
+   py1 = cx*idow[0] + cy*idow[1] + cz*idow[2];
+   pz1 = cx*ifor[0] + cy*ifor[1] + cz*ifor[2];
+
+   px0 = -px0; px1 = -px1; //WTF?
+   isflat0 = (pr0 < 0.0); pr0 = max(fabs(pr0),1e-6);
+   isflat1 = (pr1 < 0.0); pr1 = max(fabs(pr1),1e-6);
+   if ((flags%(DRAWCONE_FLAT0*2)) >= DRAWCONE_FLAT0) isflat0 = 1;
+   if ((flags%(DRAWCONE_FLAT1*2)) >= DRAWCONE_FLAT1) isflat1 = 1;
+   if ((flags%(DRAWCONE_CENT*2)) >= DRAWCONE_CENT)
+   {
+      dx = px1-px0; dy = py1-py0; dz = pz1-pz0; dr = pr1-pr0;
+      f = dr/(dx*dx + dy*dy + dz*dz); g = sqrt(f*dr + 1.0);
+      d = pr0*f; px0 += dx*d; py0 += dy*d; pz0 += dz*d; pr0 *= g;
+      d = pr1*f; px1 += dx*d; py1 += dy*d; pz1 += dz*d; pr1 *= g;
+   }
+
+//----------------------------------------
+      //raytrace cone (find hit&norm)
+   cosang2 = max(1.0 - (pr1-pr0)^2 / ((px1-px0)^2 + (py1-py0)^2 + (pz1-pz0)^2),0.0);
+   cosang = sqrt(cosang2); sinang = sqrt(1.0-cosang2); if (pr0 < pr1) sinang = -sinang;
+
+   nmx = px1-px0;
+   nmy = py1-py0;
+   nmz = pz1-pz0;
+   f = nmx*nmx + nmy*nmy + nmz*nmz; if (f > 0.0) f = 1.0/sqrt(f);
+   nmx *= f; nmy *= f; nmz *= f;
+   nx0 = px0 + nmx*sinang*pr0; nx1 = px1 + nmx*sinang*pr1;
+   ny0 = py0 + nmy*sinang*pr0; ny1 = py1 + nmy*sinang*pr1;
+   nz0 = pz0 + nmz*sinang*pr0; nz1 = pz1 + nmz*sinang*pr1;
+   nr0 =           cosang*pr0; nr1  =          cosang*pr1;
+
+   nnx = nx1-nx0;
+   nny = ny1-ny0;
+   nnz = nz1-nz0;
+   k0 = nnx*nnx + nny*nny + nnz*nnz;
+   k1 = nx0*nnx + ny0*nny + nz0*nnz;
+   if (k0) { k0 = 1/k0; } else { k0 = 1; k1 = 1; }
+
+      //h = v*f
+      //dot(h-c,n)^2 = dot(h-c,h-c)*cosang2
+      //kcalc "((hx-cx)*nx+(hy-cy)*ny+(hz-cz)*nz)~2-((hx-cx)~2+(hy-cy)~2+(hz-cz)~2)*cosang2"
+      
+   f = (pr1-pr0)^2 - ((px1-px0)^2 + (py1-py0)^2 + (pz1-pz0)^2);
+   kxx = (px1-px0)*(px1-px0) + f;
+   kyy = (py1-py0)*(py1-py0) + f;
+   kzz = (pz1-pz0)*(pz1-pz0) + f;
+   kxy = (px1-px0)*(py1-py0)*2.0;
+   kxz = (px1-px0)*(pz1-pz0)*2.0;
+   kyz = (py1-py0)*(pz1-pz0)*2.0;
+
+   f = ((px1-px0)*px1 + (py1-py0)*py1 + (pz1-pz0)*pz1 + (pr0-pr1)*pr1)*2.0;
+   g = ((px1-px0)*px0 + (py1-py0)*py0 + (pz1-pz0)*pz0 + (pr0-pr1)*pr0)*2.0;
+   kx = f*px0 - g*px1;
+   ky = f*py0 - g*py1;
+   kz = f*pz0 - g*pz1;
+
+   k = + (px0*pr1 - px1*pr0)*(px0*pr1 - px1*pr0) - (px0*py1 - px1*py0)*(px0*py1 - px1*py0)
+       + (py0*pr1 - py1*pr0)*(py0*pr1 - py1*pr0) - (py0*pz1 - py1*pz0)*(py0*pz1 - py1*pz0)
+       + (pz0*pr1 - pz1*pr0)*(pz0*pr1 - pz1*pr0) - (pz0*px1 - pz1*px0)*(pz0*px1 - pz1*px0);
+
+   glProgramLocalParam( 0,-1/sqrt(3),1/sqrt(3),1/sqrt(3),keystatus[0x2a]); //ligmode
+   if (isflat0 == 0) glProgramLocalParam( 1,px0,py0,pz0,pr0*pr0 - (px0*px0 + py0*py0 + pz0*pz0)); //p0,Zc0
+                else glProgramLocalParam( 1,0,0,0,-1);
+   if (isflat1 == 0) glProgramLocalParam( 2,px1,py1,pz1,pr1*pr1 - (px1*px1 + py1*py1 + pz1*pz1)); //p1,Zc1
+                else glProgramLocalParam( 2,0,0,0,-1);
+   glProgramLocalParam( 3,nx0,ny0,nz0,nr0); //n0
+   glProgramLocalParam( 4,nx1,ny1,nz1,nr1); //n1
+   glProgramLocalParam( 5,nmx,nmy,nmz,0); //dnm
+   glProgramLocalParam( 6,nmx,nmy,nmz,sinang/cosang); //nm,tanang
+   glProgramLocalParam( 7,nnx,nny,nnz,  0); //nnm
+   glProgramLocalParam( 8,k,k0,k1,kzz); //k
+   glProgramLocalParam( 9,kxx,kxy,kxz,-znear*zfar/(zfar-znear)); //kxw
+   glProgramLocalParam(10,kyy,kyz,0,zfar/(zfar-znear)); //kyw
+   glProgramLocalParam(11,kx,ky,kz,0); //kw
+   glProgramLocalParam(12,1/pr0,1/pr1,0,0); //pr
+   if (nx0*nmx + ny0*nmy + nz0*nmz > 0)
+   {
+      glProgramLocalParam(13,-nmx,-nmy,-nmz,0); //fnm
+      glProgramLocalParam(14,nx0,ny0,nz0,nr0^2*isflat0); //fp
+   }
+   else
+   {
+      glProgramLocalParam(13,+nmx,+nmy,+nmz,0); //fnm
+      glProgramLocalParam(14,nx1,ny1,nz1,nr1^2*isflat1); //fp
+   }
+//----------------------------------------
+      //Pick front-most depth to ensure it passes to fragment shader
+   zdep = -max(min(pz0-pr0,pz1-pr1),znear+1e-6);
+
+   pn = 0;
+   
+   dx = px1-px0; dy = py1-py0; dz = pz1-pz0; dr = pr1-pr0;
+   if (dx*dx + dy*dy + dz*dz <= dr*dr) //gulped/can render single sphere
+   {
+      if ((isflat1 < isflat0) && (dr < 0)) return;
+      if ((isflat1 > isflat0) && (dr > 0)) return;
+      glProgramLocalParam( 5,0,0,0,0); //dnm
+      if (pr1 > pr0) { px0 = px1; py0 = py1; pz0 = pz1; pr0 = pr1; }
+      f = 1.0/pr0; px0 *= f; py0 *= f; pz0 *= f;
+singsph:;
+      d2 = px0^2 + py0^2 + pz0^2; f = 1-1/d2; cx = px0*f; cy = py0*f; cz = pz0*f;
+               
+      ax = 0; ay = 0; az = 0; bx = 0; by = 0; bz = 0; getperpvec(cx,cy,cz,&ax,&ay,&az,&bx,&by,&bz);
+      n = min(max(int((PI*2)*3/sqrt(sqrt(d2))+.5),3),PMAX);
+      da = (PI*2)/n; f = sqrt(f); f *= 1/cos(da/2)/*circumscribe circle*/;
+      for(i=n;i>0;i--)
+      {
+         a = (i-.5)*da; c = cos(a)*f; s = sin(a)*f;
+         px[pn] = cx+ax*c+bx*s;
+         py[pn] = cy+ay*c+by*s;
+         pz[pn] = cz+az*c+bz*s; pn++;
+      }
+      goto skipcone;
+   }
+ 
+      //Transform cone to cylinder by normalizing endpoint radii
+   f = 1.0/pr0; px0 *= f; py0 *= f; pz0 *= f;
+   f = 1.0/pr1; px1 *= f; py1 *= f; pz1 *= f;
+   
+   dx = px1-px0; dy = py1-py0; dz = pz1-pz0;
+      //ix = dx*t + px0
+      //iy = dy*t + py0
+      //iz = dz*t + pz0
+      //dx*ix + dy*iy + dz*iz = 0
+   d2 = (px0^2+py0^2+pz0^2) - (dx*px0 + dy*py0 + dz*pz0)^2/(dx*dx + dy*dy + dz*dz);
+   if (d2 <= 1)
+   {
+      if (pz0 > pz1) { px0 = px1; py0 = py1; pz0 = pz1; }
+      goto singsph;
+   }
+   a = 1/sqrt(d2); b = sqrt(1-a*a);
+    
+   bx = dy*pz0 - dz*py0;
+   by = dz*px0 - dx*pz0;
+   bz = dx*py0 - dy*px0;
+   f = 1/sqrt(bx*bx + by*by + bz*bz); bx *= f; by *= f; bz *= f;
+   ax = dy*bz - dz*by;
+   ay = dz*bx - dx*bz;
+   az = dx*by - dy*bx;
+   f = 1/sqrt(ax*ax + ay*ay + az*az); ax *= f; ay *= f; az *= f;
+ 
+   ix[0] = px0+ax*a-bx*b; iy[0] = py0+ay*a-by*b; iz[0] = pz0+az*a-bz*b;
+   ix[1] = px0+ax*a+bx*b; iy[1] = py0+ay*a+by*b; iz[1] = pz0+az*a+bz*b;
+   ix[2] = px1+ax*a+bx*b; iy[2] = py1+ay*a+by*b; iz[2] = pz1+az*a+bz*b;
+   ix[3] = px1+ax*a-bx*b; iy[3] = py1+ay*a-by*b; iz[3] = pz1+az*a-bz*b;
+   
+   for(m=0;m<4;m+=2)
+   {
+      if (m == 0) { d2 = px0^2 + py0^2 + pz0^2; f = 1-1/d2; cx = px0*f; cy = py0*f; cz = pz0*f; }
+             else { d2 = px1^2 + py1^2 + pz1^2; f = 1-1/d2; cx = px1*f; cy = py1*f; cz = pz1*f; }   
+      getperpvec(cx,cy,cz,&ax,&ay,&az,&bx,&by,&bz);
+      a0 = atan2((ix[m+0]-cx)*bx + (iy[m+0]-cy)*by + (iz[m+0]-cz)*bz,
+                 (ix[m+0]-cx)*ax + (iy[m+0]-cy)*ay + (iz[m+0]-cz)*az);
+      a1 = atan2((ix[m+1]-cx)*bx + (iy[m+1]-cy)*by + (iz[m+1]-cz)*bz,
+                 (ix[m+1]-cx)*ax + (iy[m+1]-cy)*ay + (iz[m+1]-cz)*az);
+      if (a0 > a1) a1 += PI*2;
+      n = min(max(int((a1-a0)*3/sqrt(sqrt(d2))+.5),2),PMAX/2);
+      if (a1-a0 > PI) n = max(n,3); //prevent degenerate large triangles
+      da = (a1-a0)/n; f = sqrt(f); f *= 1/cos(da/2)/*circumscribe circle*/;
+      for(i=n;i>0;i--)
+      {
+         a = (i-.5)*da+a0; c = cos(a)*f; s = sin(a)*f;
+         px[pn] = cx+ax*c+bx*s;
+         py[pn] = cy+ay*c+by*s;
+         pz[pn] = cz+az*c+bz*s; pn++;
+      }
+   }
+skipcone:;
+   
+   pn2 = 0; enum {SCISDIST=1e-6};
+   for(i=pn-1,j=0;j<pn;i=j,j++)
+   {
+      if ((pz[i] >= SCISDIST) != (pz[j] >= SCISDIST))
+      {
+         g = (SCISDIST-pz[j])/(pz[i]-pz[j]);
+         f = hz  /  ((pz[i]-pz[j])*g + pz[j]);
+         px2[pn2] = ((px[i]-px[j])*g + px[j])*f + hx;
+         py2[pn2] = ((py[i]-py[j])*g + py[j])*f + hy;
+         pn2++;
+      }
+      if (pz[j] >= SCISDIST)
+      {
+         f = hz/pz[j];
+         px2[pn2] = px[j]*f + hx;
+         py2[pn2] = py[j]*f + hy;
+         pn2++;
+      }
+   }
+   
+   f = zdep/hz;
+   glBegin(GL_TRIANGLE_FAN);
+   for(i=0;i<pn2;i++) glVertex((px2[i]-hx)*f,(py2[i]-hy)*f,zdep);
+   glEnd();
+}
+@v: //Vertex shader =========
+!!ARBvp1.0
+PARAM ModelViewProj[4] = {state.matrix.mvp};
+TEMP t;
+DP4 t.x, ModelViewProj[0], vertex.position;
+DP4 t.y, ModelViewProj[1], vertex.position;
+DP4 t.z, ModelViewProj[2], vertex.position;
+DP4 t.w, ModelViewProj[3], vertex.position;
+MOV result.position, t;
+MUL result.color   , vertex.color, {0.1,0.1,0.1,1.0};
+MOV result.texcoord, vertex.texcoord;
+MOV result.texcoord[1], vertex.position;
+END
+
+@f: //Fragment shader =========
+!!ARBfp1.0
+MUL result.color, fragment.color, {10.0,10.0,10.0,1.0};
+END
+
+@f: //ARB ASM port of DRAWCONE2.PSS
+!!ARBfp1.0
+ATTRIB v = fragment.texcoord[1];
+ATTRIB c = fragment.color;
+ATTRIB t = fragment.texcoord[0];
+PARAM ligmode = program.local[ 0]; #ligdir.x,ligdir.y,ligdir.z,mode
+PARAM p0      = program.local[ 1]; #px0,py0,pz0,Zc0
+PARAM p1      = program.local[ 2]; #px1,py1,pz1,Zc1
+PARAM n0      = program.local[ 3]; #nx0,ny0,nz0,nr0
+PARAM n1      = program.local[ 4]; #nx1,ny1,nz1,nr1
+PARAM dnm     = program.local[ 5]; #nmx*?,nmy*?,nmz*?,0
+PARAM nm      = program.local[ 6]; #nmx,nmy,nmz,sinang/cosang
+PARAM nnm     = program.local[ 7]; #nnx,nny,nnz,0
+PARAM k       = program.local[ 8]; #k  ,k0 ,k1 ,kzz
+PARAM kxw     = program.local[ 9]; #kxx,kxy,kxz,(-znear*zfar/(zfar-znear))
+PARAM kyw     = program.local[10]; #kyy,kyz,_0_,zfar/(zfar-znear)
+PARAM kw      = program.local[11]; #kx ,ky ,kz ,0
+PARAM pr      = program.local[12]; #1/pr0,1/pr1,0,0
+PARAM fnm     = program.local[13]; #?nmx,?nmy,?nmz,0
+PARAM fp      = program.local[14]; #nx?,ny?,nz?,nr?*isflat?);
+
+TEMP norm, f, Za, Zb, insqr, fmin, ofmin, t0, t1, t2, nhit, nnorm;
+   
+   #ARB ASM min guaranteed limits:
+   #INSTS     95/72 !!! :/
+   #ATTRIBS    3/10 :)
+   #PARAMS    15/24 :)
+   #TEMPS     12/16 :)
+   #ALU_INSTS 95/48 !!! :/
+   #TEX_INSTS  0/24 :)
+   #TEX_IND    0/ 4 :)
+
+DP3 t0.x, v, kxw;         #Za = v.x*dot(v.xyz,kxw) + v.y*dot(v.yz,kyw) + v.z*v.z*kzz;
+DP3 t0.y, v.yzyz, kyw;
+MUL t0.z, v.z, k.w;
+DP3 Za, t0, v;
+DP3 Zb, -v, kw;           #Zb = dot(-v.xyz,kw);
+MUL t0, Zb, Zb;           #insqr = Zb*Zb - 4.0*Za*Zc;
+MUL t1, Za, k.x;
+MAD insqr, t1, {-4.0}, t0;
+
+RSQ t0, insqr.x;          #f = (sqrt(insqr) - Zb)/(Za*2.0);
+MAD t0, t0, insqr, -Zb;
+ADD t1, Za, Za;
+RCP t1, t1.x;
+MUL f, t0.x, t1;
+
+DP3 t0, -v, nnm;          #t2 = (dot(-v.xyz,nnm)*fm - k1)*k0;
+MAD t0, t0, f, -k.z;
+MUL t2, t0.x, k.y;
+
+MAD t0, nnm, t2, n0;      #norm = -v.xyz*f - (nnm*t2 + np0);
+MAD norm, -v, f, -t0;
+DP3 t0, norm, norm;       #norm = normalize(length(norm)*nm*tanang + norm);
+RSQ t1, t0.x;
+MUL t1, t1, t0;
+MUL t0, t1, nm;
+MAD t0, t0, nm.w, norm;
+DP3 t1, t0, t0;
+RSQ t1, t1.x;
+MUL norm, t0, t1;
+
+SLT t0, t2, {1.0};        #t0 = ((t2 >= 0.0) && (t2 < 1.0) && (insqr >= 0.0));
+CMP t0, t2, {0.0}, t0;
+CMP t0, insqr.x, {0.0}, t0;
+CMP fmin, -t0.x, f, {1e32}; #if (t0) { fmin = f; }
+
+MOV ofmin, fmin;
+
+DP3 Za, v, -v;            #Za = -dot(v.xyz,v.xyz);
+RCP t2, Za.x;
+#------------------
+   #Raytrace sphere 0
+DP3 Zb, -v, p0;           #Zb = dot(-v.xyz,p0);
+MUL t0, Zb, Zb;           #insqr = Zb*Zb - Za*Zc0;
+MAD insqr, Za, -p0.w, t0;
+RSQ t0, insqr.x;          #f = (sqrt(insqr) - Zb)/Za;
+MAD t0, t0, insqr.x, -Zb;
+MUL f, t0.x, t2;
+MUL nhit, -v, f;          #nhit = -v.xyz*f;
+SUB nnorm, nhit, p0;      #nnorm = (nhit-p0)*rr[0];
+MUL nnorm, nnorm, pr.x;
+SGE t0, ofmin, {1e32};    #t0 = ((ofmin == 1e32) && (f < fmin) && (insqr > 0.0) && (dot(nhit-np1,dnm) <= 0.0);
+SUB t1, nhit, n1;         #t1 = dot(nhit-np1,dnm);
+DP3 t1, t1, dnm;
+CMP t0, -t1.x, {0.0}, t0;
+#SLT t1, f, fmin;
+CMP t0, insqr, {0.0}, t0;
+#MUL t0, t0, t1;
+CMP fmin, -t0.x, f, fmin; #if (t0) { fmin = f; norm = nnorm; }
+CMP norm, -t0.x, nnorm, norm;
+#------------------
+   #Raytrace sphere 1
+DP3 Zb, -v, p1;           #Zb = dot(-v.xyz,p1);
+MUL t0, Zb, Zb;           #insqr = Zb*Zb - Za*Zc1;
+MAD insqr, Za, -p1.w, t0;
+RSQ t0, insqr.x;          #f = (sqrt(insqr) - Zb)/Za;
+MAD t0, t0, insqr.x, -Zb;
+MUL f, t0.x, t2;
+MUL nhit, -v, f;          #nhit = -v.xyz*f;
+SUB nnorm, nhit, p1;      #nnorm = (nhit-p1)*rr[1];
+MUL nnorm, nnorm, pr.y;
+SGE t0, ofmin, {1e32};    #t0 = ((ofmin == 1e32) && (f < fmin) && (insqr > 0.0) && (dot(nhit-np0,dnm) >= 0.0);
+SUB t1, nhit, n0;         #t1 = dot(nhit-np0,dnm);
+DP3 t1, -t1, dnm;
+CMP t0, -t1.x, {0.0}, t0;
+SLT t1, f, fmin;
+CMP t0, insqr, {0.0}, t0;
+MUL t0, t0, t1;
+CMP fmin, -t0.x, f, fmin; #if (t0) { fmin = f; norm = nnorm; }
+CMP norm, -t0.x, nnorm, norm;
+#------------------
+   #Raytrace plane 0 or 1 (fr=0 to disable)
+DP3 t1, fp, fnm;          #f = -dot(fp,fnm)/dot(v.xyz,fnm);
+DP3 t0, v, fnm;
+RCP t2, t0.x;
+MUL f, t1, -t2;
+MAD t2, -v, f, -fp;       #t2 = -v.xyz*f-fp;
+DP3 t1, t2, t2;           #if (dot(t2,t2) < fr*fr)
+SLT t0, t1, fp.w;
+CMP fmin, -t0.x, f, fmin; #   { fmin = f; norm = fnm; }
+CMP norm, -t0.x, fnm, norm;
+#------------------
+
+#SGE t0, fmin, {1e32};     #if ((fmin <= 0.0) || (fmin >= 1e32)) discard;
+#CMP t0, fmin, t0, {0.0};
+#KIL -t0.x;
+
+DP3 f, norm, ligmode;     #f = dot(norm,ligdir)*-.5+.5;
+MAD f, f, {-.5}, {+.5};
+
+   #Standard reflection
+DP3 t1, -v, v;            #t1 = normalize(-v.xyz); //t1 = normalized view direction
+RSQ t0, t1.x;
+MUL t1, -v, t0;
+DP3 t0, norm, ligmode;    #t2 = max(dot(dot(norm,ligdir)*norm*2.0-ligdir,t1),0.0); 
+MUL t0, t0, norm;
+MAD t0, t0, {2.0,2.0,2.0}, -ligmode;
+DP3_SAT t2, t0, t1;
+MUL t2, t2, t2;           #t2 *= t2; t2 *= t2; t2 *= t2; f += t2;
+MUL t2, t2, t2;
+CMP t2, -ligmode.w, {0.0}, t2; #if (mode) t2 = 0.0; //disable phong
+MAD f, t2, t2, f;
+
+MUL t1, -v, fmin.x;       #hit = -v*f;
+RCP t0, t1.z;             #gl_FragDepth = zmul/hit.z + zadd;
+MAD result.depth, t0, kxw.w, kyw.w;
+
+MUL f, f.x, c;            #gl_FragColor = vec4(.8,.8,.8,1.0)*c*f;
+MOV f.w, c.w;
+MUL result.color, f, {8.0,8.0,8.0,1.0};
+
+END

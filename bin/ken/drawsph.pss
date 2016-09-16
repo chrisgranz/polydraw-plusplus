@@ -1,0 +1,122 @@
+   //Phong shaded drawsph() using pixel shader.. by Ken Silverman
+   //Press mouse buttons to change render mode.
+   //01/08/2011: Start.
+   //01/09/2011: Clean&optimize generation of rotated rect around sphere
+()
+{
+   if (numframes == 0)
+   {
+      fov = atan(yres/xres)*2*180/PI;
+      //glsettex(0,"earth.jpg");
+      static hbstatus; hbstatus = glgetuniformloc("bstatus");
+      static sumtim = 0, sumnframe = 0, sumn = 32;
+   }
+
+   tim = klock()%2; glklockstart();
+   glColor(.5,.5,.5); gluniform1i(hbstatus,bstatus);
+   for(z=2;z<24;z+=2)
+   {
+      //glColor(.8-z/50,.7-z/50,.6-z/50);
+      for(y=tim-int(z*.375)*2-3;y<z*.75+1;y+=2)
+         for(x=tim-z-1;x<z+1;x+=2) drawsph(x,-y,-z,.5);
+   }
+   //n = 256; for(i=0;i<n;i++) drawsph(cos(i/n*(PI*2)),sin(i/n*(PI*2)),-2,.25);
+   sumtim += glklockelapsed();
+   if (numframes >= sumnframe)
+   {
+      printf("\r%5.3f msec ",(sumtim/sumn)*1e3);
+      sumtim = 0; sumnframe += sumn;
+   }
+}
+
+drawsph (cx, cy, cz, cr)
+{
+   k0 = cz^2 - cr^2; k2 = 1/k0;
+   k1 = cx^2 + cy^2;
+   f = k2*cz; x = cx*f; y = cy*f; //ellipse center
+   f = k2*cr;
+   u = sqrt(k0+k1)*f; //ellipse major axis leng
+   v = sqrt(k0   )*f; //ellipse minor axis leng
+   if (k1 > 1e-7) { f = 1/sqrt(k1); dx = cx*f; dy = cy*f; } else { dx = 1; dy = 0; }
+
+   enum {NMAX=16};
+   static ncur = 0, clut[NMAX] = {0}, slut[NMAX] = {0};
+
+   n = 3; if (cz*-.05 < cr) { n = 4; if (cz*-.10 < cr) { n = 5; if (cz*-.20 < cr) n = 6; } }
+   if (n != ncur)
+   {
+      ncur = n;
+      r = 1/cos(PI/ncur); j = PI*2/ncur;
+      for(i=NMAX-1;i>=0;i--)
+      {
+         clut[i] = cos((i+.5)*j)*r;
+         slut[i] = sin((i+.5)*j)*r;
+      }
+   }
+
+   z = cz-cr; //Pick front-most depth to ensure it passes to fragment shader   
+   glBegin(GL_TRIANGLE_FAN); glNormal(cx,cy,cz); glTexCoord(cr^2,1/cr,0);
+   for(i=0;i<ncur;i++)
+   {
+      c = clut[i]*u; s = slut[i]*v;
+      glVertex((x+dx*c+dy*s)*z,(y+dy*c-dx*s)*z,z);
+   }
+   glEnd();
+}
+
+@v: //Vertex shader =========
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   v = gl_Vertex;
+   n = gl_Normal;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f: //Fragment shader =========
+varying vec4 p, v, c, t;
+varying vec3 n;
+uniform int bstatus;
+//uniform sampler2D tex0;
+//uniform samplerCube tex0;
+void main ()
+{
+   vec3 l = normalize(vec3(1.0,-1.0,-1.0)); //l = normalized light direction
+   vec3 u, r, nn;
+   float Za, Zb, Zc, insqr, g, rad2 = t.x, rrad = t.y, f, d;
+
+      //ix = v.x*g; iy = v.y*g; iz = v.z*g
+      //(ix-n.x)^2 + (iy-n.y)^2 + (iz-n.z)^2 = r^2
+   Za = dot(v.xyz,v.xyz);
+   Zb = dot(v.xyz,n);
+   Zc = dot(n,n) - rad2;
+   insqr = Zb*Zb - Za*Zc; if (bstatus != 3) { if (insqr < 0.0) discard; }
+   g = (Zb-sqrt(insqr))/Za;
+
+   nn = (v.xyz*g-n)*rrad; //n = normalize normal vector
+   f = dot(nn,l)*-.5+.5;
+   if (bstatus != 2)
+   {
+      u = normalize(v.xyz); //u = normalize view direction
+         //r = reflected view direction
+         //   /|\
+         // r/_|_\u
+         //    |n
+      if (bstatus != 1) { d = max(dot(dot(nn,l)*nn*2.0-l,u),0.0);              } //Standard reflection
+                   else { d = min(dot(normalize(u+l),nn),0.0); d *= d; d *= d; } //Blinn-Phong shading
+      d *= d; d *= d; d *= d; f += d;
+   }
+
+   if (bstatus != 3)
+   {
+      float znear = 0.1, zfar = 1000.0; gl_FragDepth = (znear*zfar/(zfar-znear))/(v.z*g)+zfar/(zfar-znear);
+   }
+
+   //c *= texture2D(tex0,vec2(atan2(-nn.z,nn.x)/(3.1415926535*2.0)-n.x*.25,atan2(sqrt(nn.x*nn.x + nn.z*nn.z),nn.y)/3.1415926535))*2.0;
+   //c *= textureCube(tex0,vec3(nn.x*cos(n.x)-nn.z*sin(n.x),nn.y,nn.z*cos(n.x)+nn.x*sin(n.x)));
+   gl_FragColor = c*f;
+}

@@ -1,0 +1,140 @@
+//tigrou 15.05.2011 (tigrou.ind at gmail.com)
+()
+{
+   glsettex(0,"b2dr_sph.jpg");
+
+   t = klock();
+   glcullface(GL_FRONT); //helps a lot
+
+   gltranslate(0, 0, -10);
+   glrotate(40 + sin(t / 20) * 4, 1, 0, 0);
+   glrotate(t * 10, 0, -1, 0);
+
+   glsetshader(0);  
+   discoball();
+}
+
+discoball()
+{
+   for (l = -PI / 2; l < PI / 2; l += 0.057)
+   {
+      n = 1 / (cos(l) * 18);
+      for (w = -PI; w < PI; w += n)
+      {
+         ww = w + l * 10;
+         x = cos(l) * sin(ww);
+         y = sin(l);
+         z = cos(l) * cos(ww);
+   
+         glpushmatrix();
+            glTranslate(x * 5, y * 5, z * 5);
+            glrotate(ww / (2 * PI) * 360, 0, 1, 0);
+            glrotate(-l / (PI * 2) * 360, 1, 0, 0);
+            zm = 0.139;   
+            glscale(zm, zm, zm * 0.05);
+            cube();
+         glpopmatrix();
+   
+      }
+   }
+}
+
+
+
+cube()
+{  
+
+   glnormal(0.0, 1.0, 0.2);
+   glBegin(GL_QUADS);
+      glVertex( 1.0, 1.0,-1.0);
+      glVertex(-1.0, 1.0,-1.0);
+      glVertex(-0.8, 0.8, 1.0);
+      glVertex( 0.8, 0.8, 1.0);
+   glEnd();
+   
+   glnormal(0.0, -1.0, 0.2);
+   glBegin(GL_QUADS);
+      glVertex( 0.8,-0.8, 1.0);
+      glVertex(-0.8,-0.8, 1.0);
+      glVertex(-1.0,-1.0,-1.0);
+      glVertex( 1.0,-1.0,-1.0);
+   glEnd();
+   
+   glnormal(0.0, 0.0, 1.0);
+   glBegin(GL_QUADS); 
+      glVertex( 0.8, 0.8, 1.0);
+      glVertex(-0.8, 0.8, 1.0);
+      glVertex(-0.8,-0.8, 1.0);
+      glVertex( 0.8,-0.8, 1.0);
+   glend();
+
+   
+   glnormal(-1.0, 0.0, 0.2);
+   glBegin(GL_QUADS);
+      glVertex(-0.8, 0.8, 1.0);
+      glVertex(-1.0, 1.0,-1.0);
+      glVertex(-1.0,-1.0,-1.0);
+      glVertex(-0.8,-0.8, 1.0);
+   glEnd();
+
+   glnormal(1.0, 0.0, 0.2);
+   glBegin(GL_QUADS);
+      glVertex( 1.0, 1.0,-1.0);
+      glVertex( 0.8, 0.8, 1.0);
+      glVertex( 0.8,-0.8, 1.0);
+      glVertex( 1.0,-1.0,-1.0);
+   glEnd();
+
+}
+
+
+
+@v:v1 ----------------------------------------
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+float light(vec3 l)
+{
+   l = normalize(l);
+   float la = max(dot(n, l), 0.0);
+   la = pow(la, 6.0);
+
+   vec3 rs = reflect(-l, n);
+   float sp = max(dot(rs, l), 0.0);
+   sp = pow(sp, 20.0);
+   return la * 0.5 + sp;
+}
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   
+   n = normalize(gl_NormalMatrix * gl_Normal);
+
+   c.r = light(vec3(-1.0, 1.0, 3.0)) 
+       + light(vec3(1.0, -1.0, 3.0))
+       + light(vec3(2.0, 1.0,  3.0));
+   c.r /= 2.5;
+
+   vec3 u = normalize( vec3(gl_ModelViewMatrix * gl_Vertex) );
+   vec3 r = reflect( u, n );
+   float m = 1.0/(length(r+vec3(0.0,0.0,1.0))*2.0);
+   t.s = r.x*m + 0.5;
+   t.t = r.y*m + 0.5;
+}
+
+
+
+
+@f:f1 --------------------------------------
+
+varying vec4 p, c, t;
+varying vec3 n;
+uniform sampler2D tex0;
+
+void main()
+{
+    gl_FragColor = vec4(c.r)+5.0* c.r* texture2D(tex0, vec2(t.s, t.t));
+}

@@ -1,0 +1,83 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+//some optimization & cleanup by Ken
+()
+{
+   enum {N=5000};
+   static x[N], y[N], z[N];
+   static vx[N], vy[N], vz[N], alpha[N];
+   static t, nn;
+
+   oldt = t; t = klock()*0.5; dt = t - oldt;
+
+   glalphaenable();
+   glsetshader(0);
+
+   while(nn < int(t*2500) && t < 4)
+   {
+      i = nn % N;
+      x[i] = nrnd*.5; vx[i] = nrnd*1.5;
+      y[i] = nrnd*.5; vy[i] = nrnd*3.0 + 4;
+      z[i] = nrnd*.5; vz[i] = nrnd*1.5;
+      alpha[i] = rnd*.9 + 0.1;
+      nn++;
+   }
+
+   floory = -10; cylrad = 100; cylrad2 = cylrad^2; width = 0.40; length = 1.5;
+   glBegin(GL_QUADS);
+   for (i = 0; i < N; i++)
+   {
+      f = dt*60; x[i] += vx[i]*f; y[i] += vy[i]*f; z[i] += vz[i]*f; //momentum
+      vy[i] -= dt * 8; //gravity
+      f = exp(dt*-2); vx[i] *= f; vy[i] *= f; vz[i] *= f; //friction
+   
+      if (y[i] < floory) { y[i] = floory*2-y[i]; vy[i] *= -0.9; } //bounce: floor
+   
+      d2 = x[i]^2 + z[i]^2; //bounce: upright cylinder
+      if (d2 > cylrad2)
+      {
+         f = 1/sqrt(d2); nx = x[i]*f; nz = z[i]*f;
+         f = (vx[i]*nx + vz[i]*nz)*(2*-0.7); vx[i] += nx*f; vz[i] += nz*f;
+         f = cylrad2/d2; x[i] *= f; z[i] *= f;
+      }
+      alpha[i] -= dt*0.4; 
+
+      c = max(alpha[i],0);
+
+      px = x[i];     dx = vx[i]*length;
+      py = y[i];     dy = vy[i]*length;
+      pz = z[i]-100; dz = vz[i]*length;
+
+         //Particle's width vector = cross(pos,vel)
+      nx = py*dz - pz*dy;
+      ny = pz*dx - px*dz;
+      nz = px*dy - py*dx;
+      f = width/sqrt(nx^2 + ny^2 + nz^2);
+      nx *= f; ny *= f; nz *= f;
+
+      glColor(c, 0, 0);
+      gltexcoord(0, 0);  glVertex(px - dx - nx, py - dy - ny , pz - dz - nz);
+      gltexcoord(1, 0);  glVertex(px + dx - nx, py + dy - ny , pz + dz - nz);
+      gltexcoord(1, 1);  glVertex(px + dx + nx, py + dy + ny , pz + dz + nz);
+      gltexcoord(0, 1);  glVertex(px - dx + nx, py - dy + ny , pz - dz + nz);
+
+   }
+   glEnd();
+}
+@v: //==========================================
+varying vec4 p, c, t;
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Vertex;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f: //==========================================
+varying vec4 p, c, t;
+void main()
+{
+
+   float cc = pow(cos((t.t-0.5)*3.14)* cos((t.s-0.5)*3.14),0.5);
+   gl_FragColor =  vec4(1.5, 1.0, 0.3, 0.8) * cc * c.r * 1.5 * (t.s + 0.5);
+}

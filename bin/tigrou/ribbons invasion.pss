@@ -1,0 +1,96 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+enum
+{
+   n = 2000, 
+   nw = 4
+}
+
+static px[nw], py[nw];
+static lx[nw][n], ly[nw][n];
+static vx[nw][n], vy[nw][n];
+static a[nw], b[nw], g[nw];
+static nframes;
+()
+{
+   
+   if(nw > 1)
+   {   
+      minx = 99999,maxx = -99999;
+      miny = 99999,maxy = -99999;
+      for(i = 0; i < nw; i++)
+      {
+         if(px[i] < minx) minx = px[i];    
+         if(px[i] > maxx) maxx = px[i];  
+         if(py[i] < miny) miny = py[i]; 
+         if(py[i] > maxy) maxy = py[i];  
+      } 
+
+      z = 0.14;
+      s = z / max((maxx - minx), (maxy - miny));
+
+      glscale(s, s, 1);
+      gltranslate(-(maxx + minx) / 2, -(maxy + miny) / 2, -0.1);
+   }  
+   else
+   {
+      glrotate(a[0] /(2 * PI) * 90, 0, 0, 1);
+      gltranslate(-px[0], -py[0], -90);
+   } 
+
+   for(i = 0; i < nw; i++)
+   {   
+      glbegin(GL_TRIANGLE_STRIP);
+      for(j = 0; j < n; j++)
+      {
+         k = (j + nframes) % n;
+         glcolor(sin(i / 4), cos(i / 4), cos(i / 2));
+         glvertex(lx[i][k] + vx[i][k], ly[i][k] + vy[i][k], 0);
+         glvertex(lx[i][k] - vx[i][k], ly[i][k] - vy[i][k], 0);
+      }
+      glend();
+
+
+      nx = sin(a[i]);
+      ny = cos(a[i]);
+   
+      vx[i][nframes % n] = sin(a[i] + PI/2) * 8;
+      vy[i][nframes % n] = cos(a[i] + PI/2) * 8;
+   
+      px[i] = px[i] + nx * 10.0;
+      py[i] = py[i] + ny * 10.0;
+      lx[i][nframes % n] = px[i];
+      ly[i][nframes % n] = py[i];
+
+      
+      if(rnd > 0.96) 
+      { 
+         g[i] = 0.25 - rnd * 0.5; 
+         b[i] = 20;
+      }
+
+      if(b[i] > 0)
+      {
+         a[i] = a[i] + g[i];
+         b[i] = b[i] - 1;
+      }          
+   
+   }
+   nframes++;
+}
+
+
+@v
+varying vec4 c;
+void main()
+{
+   gl_Position = ftransform();
+   c = gl_Color;
+}
+@f
+
+varying vec4 c;
+void main()
+{
+   gl_FragColor = c;
+}
+

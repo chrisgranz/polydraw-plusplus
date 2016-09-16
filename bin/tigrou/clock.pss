@@ -1,0 +1,152 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+   static t;
+   
+   static old_seconds, old_minutes, old_hours;
+   static ds, dm, dh;
+   static shakeshift, shakecolor;
+
+   local = klock(1);
+   milliseconds = local%1;
+   seconds = int(local)%100;
+   minutes = int(local/100) % 100;
+   hours = int(local/10000) % 100;
+
+   if(numframes == 0)
+   {
+      old_seconds = seconds;
+      old_minutes = minutes;
+      old_hours = hours;
+   }
+
+   oldt = t;
+   t = milliseconds + seconds;
+   dt = max(t - oldt, 0);
+   amp = 4.2;
+
+   shakecolor *= exp(dt * -5);
+   shakeshift = sin(t * 25) * dm * 0.001;
+   
+   if(seconds != old_seconds)
+   {
+      old_seconds = seconds;
+      ds = amp/2;
+
+      if(minutes != old_minutes)
+      { 
+         old_minutes = minutes;
+         dm = amp;
+         shakecolor = 2000;
+   
+         if(hours != old_hours)
+         { 
+            old_hours = hours;
+            dh = amp;
+         }
+      }
+   }
+   ds *= exp(dt * -2.82);
+   dm *= exp(dt * -0.60);
+   dh *= exp(dt * -0.30);
+
+   glcapture();
+      glpushmatrix();
+      gltranslate(0, 0, -2.6);
+      glscale(1*xres/yres, 1, 1);
+
+      glnormal(shakeshift, shakecolor, xres/yres);
+      drawclock(seconds, minutes, hours, ds, dm, dh, t);
+      glpopmatrix();
+   glcaptureend(0);
+
+
+   glsetshader(1);
+   glquad();
+
+}
+
+drawclock(seconds, minutes, hours, ds, dm, dh, t)
+{
+   drawcadran();
+
+   drawneedle(min(t / 60 * 360 * 1.02, 360), 0.9);
+   //drawneedle(seconds * 360/60 + sin(t * 25) * ds, 0.9);   
+
+   drawneedle(minutes * 360/60 + sin(t * 25) * dm, 0.8);
+   drawneedle(hours * 360/12 + floor(minutes/12) * 360/60 + sin(t * 25) * dh, 0.6);
+}
+
+drawcadran()
+{
+   gllinewidth(5);
+   for (i = 0; i < 60; i++)
+   {
+      glpushmatrix();
+         glrotate(-i * (360) / 60, 0, 0, 1);
+         t = (i % 5 == 0);
+         glBegin(GL_LINES);
+            glvertex(0, 0.95 - t * 0.1, 0);
+            glvertex(0, 1, 0);
+         glEnd();
+      glpopmatrix();
+   }
+}
+
+drawneedle(a, s)
+{
+   glpushmatrix();
+   glscale(s, s, s);
+   glrotate(-a, 0, 0, 1);
+
+   glBegin(GL_QUADS);
+      gltexcoord(0, 0);  glvertex( 0.0,-0.1, 0.0);
+      gltexcoord(1, 0);  glvertex( 0.1, 0.0, 0.0);
+      gltexcoord(1, 1);  glvertex( 0.0, 1.0, 0.0);
+      gltexcoord(0, 1);  glvertex(-0.1, 0.0, 0.0);
+   glEnd();
+   glpopmatrix();
+}
+
+
+@v: ================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   n = gl_Normal;
+   t = gl_MultiTexCoord0 + n.x;
+}
+
+@f: ================================
+varying vec4 p, c, t;
+varying vec3 n;
+
+void main()
+{  
+   gl_FragColor = vec4(1.0);
+}
+
+@f:blur ================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+uniform sampler2D tex0;
+
+void main()
+{
+   int shift = int(mod(t.t*3.0, 2.0)); 
+   vec4 s = vec4(0);
+   for(int i = 0 ; i < 8; i++)
+   {
+      float ii = float(i)/8.0*2.0*3.14;
+      s += texture2D(tex0, 3.0 * vec2(t.s*n.z+sin(ii)*0.002+float(shift)/2.0, t.t+cos(ii)*0.002));
+   }
+   s /= 8.0;
+   gl_FragColor = vec4(s.r+n.y/100.0, s.g, s.b, 1.0);
+}

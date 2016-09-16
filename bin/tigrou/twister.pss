@@ -1,0 +1,94 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+glcolor(klock() / 1.3, 0, 0);
+glquad();
+
+@vertex_shader: ================================
+varying vec4 p, c;
+
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+}
+
+@fragment_shader: ================================
+
+varying vec4 p, c;
+
+vec3 ry(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.x = c * q.x - s * q.z;
+   p.z = s * q.x + c * q.z;
+   return p;
+}
+
+
+float cube(vec3 p,vec3 size)
+{
+    return max(max(abs(p.x) - size.x, abs(p.y) - size.y), abs(p.z) - size.z);
+}
+
+
+float f(vec3 p)
+{
+   p = ry(p, p.y * sin(c.r) * 3.0 - c.r * 2.0);
+   return cube(p, vec3(0.25, 1.0, 0.25));
+}
+
+vec3 light(vec3 n, vec3 l, vec3 d, vec3 lc)
+{ 
+   l = normalize(l);
+   float la =  max(dot(n,l),0.0);
+   la = pow(la, 3.0);
+   vec3 r =  reflect(-l, n); 
+   float sp = max(dot(r, l), 0.0);
+   sp = pow(sp, 50.0);
+   return d * lc * la + lc * sp;            
+}
+
+
+void main(void)
+{
+   vec3 color = vec3(0.0);
+   
+   vec3 ro = vec3(p.x, -p.y, -1.0);
+   vec3 rd = vec3(0.0, 0.0 ,1.0);
+
+
+   float t = 0.0;
+   
+   for(int steps = 0; steps < 75; steps++)
+   {
+
+      float d = f(ro  + t * rd);
+      if(d < 0.001) 
+      {
+
+         float e = 0.02;
+         vec3 h = ro  +t * rd;
+         vec3 n = vec3(f(h + vec3(e,   0.0, 0.0)) - f(h - vec3(e,   0.0, 0.0)), 
+                       f(h + vec3(0.0, e,   0.0)) - f(h - vec3(0.0, e,   0.0)), 
+                       f(h + vec3(0.0, 0.0, e))   - f(h - vec3(0.0, 0.0, e)));
+         n = normalize(n);            
+         
+
+         h = ry(h, h.y * sin(c.r) * 3.0 - c.r * 2.0);
+         color.r = abs(sin(h.x * h.z * 400.0));
+
+         color = 
+           light(n, vec3( 1.0, 0.0,-1.0), vec3(0.8, 0.5, 0.0) * color.r, vec3(1.0, 1.0, 1.0)) +
+           light(n, vec3(-1.0, 1.0,-1.0), vec3(0.8, 0.5, 0.0) * color.r, vec3(0.25, 0.25, 0.25));          
+
+         break;
+      }
+      t += d * 0.9;
+   }
+   gl_FragColor = vec4(color, 1.0);
+   
+}

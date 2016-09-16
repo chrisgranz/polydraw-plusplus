@@ -1,0 +1,68 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+   glColor(klock(), 0, 0);
+   glquad();
+}
+
+
+@v: ========================================
+
+varying vec4 p, t, color;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Vertex;
+   t = gl_MultiTexCoord0;
+   color = gl_Color;
+}
+
+@f: ========================================
+
+varying vec4 p, t, color;
+
+void main()
+{
+   vec2 z, c;
+
+   int i;
+   float scale;
+
+   float d, sd, sa;
+   int iter = 100;
+   vec2 center;
+   center.x = 0.85;
+   center.y = 0.2;
+   scale = 0.1 + abs(sin(color.r * 0.05) * 2.0);
+
+   c.x = 1.3333 * (t.x - 0.5) * scale - center.x;
+   c.y = (t.y - 0.5) * scale - center.y;
+   z = c * sin(color.r / 2.0);
+
+   sd = 0.0;
+   for (i = 0; i < iter; i++)
+   {
+      float x = (z.x * z.x - z.y * z.y) + c.x;
+      float y = (z.y * z.x + z.x * z.y) + c.y;
+      d = x * x + y * y;
+      if (d > 4.0) break;
+      z.x = x;
+      z.y = y;
+      sd = sd + d * 0.5;
+   }
+
+   float cc = float(i) / float(iter);
+
+   cc = (cc - 0.5);
+
+   if (cc < 0.0)
+   {
+      cc = cc + cc * sin(sd / 2.0);
+      gl_FragColor = vec4(vec3(0.5, 1.0, 2.2) * -cc, 1.0);
+   }
+   else
+   {
+      gl_FragColor = vec4(0.0);
+   }
+}

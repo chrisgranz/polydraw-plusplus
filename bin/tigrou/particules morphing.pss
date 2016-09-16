@@ -1,0 +1,138 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+static i;
+
+()
+{
+   t = klock(); 
+   gltranslate(0, 0, -90 - abs(sin(t / 10)) * 500);
+   //glrotate(t * 10, 0.1, 1, 0.8);
+   i = 0;
+   rcube(0, 0, 0, 0, 1, t);
+
+
+}
+
+rcube(level, px, py, pz, s, t)
+{
+   for (x = -1; x <= 1; x++)
+   {
+      for (y = -1; y <= 1; y++)
+      {
+         for (z = -1; z <= 1; z++)
+         {
+            if ((x == 0 && y == 0) == 0 && (z == 0 && y == 0) == 0 && (z == 0 && x == 0) == 0)
+            {
+               mpx = px + x * 17.2 * s;
+               mpy = py + y * 17.2 * s;
+               mpz = pz + z * 17.2 * s;
+               ms = s * 0.33;
+
+               if (level < 1)
+               {
+                  rcube(level + 1, mpx, mpy, mpz, ms, t);
+               }
+               else
+               {
+                  ii = i / 1222;
+                  ss = t + (ii + sin(ii * 52 + t / 5) * 545) / 300;
+
+                  dx = sin(ss) * 150 + cos(ss * 1.5) * 40 + cos(ii * 0.8) * 5;
+                  dy = cos(ss) * 150 + sin(ii * 0.7) * 5  + cos(ss / 4) * 20;
+                  dz = cos(ss) * 150 + cos(ii * 0.7) * 4  + sin(ss * 3) * 50;
+
+                  w = abs(sin(t / 10)); 
+                  
+                  glpushMatrix();
+                     gltranslate(dx * w + mpx * (1 - w), 
+                                 dy * w + mpy * (1 - w), 
+                                 dz * w + mpz * (1 - w));
+                     glscale(3,3,3)                               
+                     glcolor(i, 0, 0);
+                     cube();                     
+                  glpopMatrix();
+                  i++;
+
+               }
+            }
+         }
+      }
+
+   }
+
+}
+
+
+cube()
+{
+ 
+   
+   glBegin(GL_QUADS);
+      glVertex( 1.0, 1.0,-1.0);
+      glVertex(-1.0, 1.0,-1.0);
+      glVertex(-1.0, 1.0, 1.0);
+      glVertex( 1.0, 1.0, 1.0);
+   glEnd();
+   
+   glBegin(GL_QUADS);
+      glVertex( 1.0,-1.0, 1.0);
+      glVertex(-1.0,-1.0, 1.0);
+      glVertex(-1.0,-1.0,-1.0);
+      glVertex( 1.0,-1.0,-1.0);
+   glEnd();
+   
+   glBegin(GL_QUADS);
+      glVertex( 1.0, 1.0, 1.0);
+      glVertex(-1.0, 1.0, 1.0);
+      glVertex(-1.0,-1.0, 1.0);
+      glVertex( 1.0,-1.0, 1.0);
+   glEnd();
+   
+   glBegin(GL_QUADS);
+      glVertex( 1.0,-1.0,-1.0);
+      glVertex(-1.0,-1.0,-1.0);
+      glVertex(-1.0, 1.0,-1.0);
+      glVertex( 1.0, 1.0,-1.0);
+   glEnd();
+   
+   glBegin(GL_QUADS);
+      glVertex(-1.0, 1.0, 1.0);
+      glVertex(-1.0, 1.0,-1.0);
+      glVertex(-1.0,-1.0,-1.0);
+      glVertex(-1.0,-1.0, 1.0);
+   glEnd();
+   
+   glBegin(GL_QUADS);
+      glVertex( 1.0, 1.0,-1.0);
+      glVertex( 1.0, 1.0, 1.0);
+      glVertex( 1.0,-1.0, 1.0);
+      glVertex( 1.0,-1.0,-1.0);
+   glEnd();
+
+
+}
+
+
+
+@v: ======================================
+
+varying vec4 p, c, t;
+
+void main()
+{
+   gl_Position = ftransform();
+   c = gl_Color;
+   p = gl_Position;
+   t = gl_MultiTexCoord0;
+}
+
+@f: ======================================
+
+varying vec4 p, c, t;
+void main()
+{
+
+   gl_FragColor.r = 0.0;
+   gl_FragColor.g = sin(p.z / 10.0);
+   gl_FragColor.b = cos(p.z / 10.0);
+   gl_FragColor.a = 1.0;
+}

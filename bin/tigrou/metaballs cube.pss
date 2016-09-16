@@ -1,0 +1,351 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+//click to change rendering
+enum
+{
+   n = 8,
+   radius = 0.12,
+   attract = 0.32,
+   size = 0.5
+};
+
+static ballx[n], bally[n], ballz[n], ballr[n];
+static ballvx[n], ballvy[n], ballvz[n]; 
+static planes[6][4];
+static mpos[n*3];
+static gmpos, gbstatus, gnbballs, gradius, gattract, gsize;
+static t;
+()
+{
+   if (numframes == 0)
+   {
+      for (i = 0; i < n; i++)
+      {
+         ballr[i] = radius;
+         ballx[i] = 0.5 - rnd;
+         bally[i] = 0.5 - rnd;
+         ballz[i] = 0.5 - rnd;
+        
+      }
+      gmpos = glGetUniformLoc("mpos");
+      gbstatus = glGetUniformLoc("bstatus");
+      gnbballs = glgetuniformloc("nbballs");
+      gradius = glgetuniformloc("radius");
+      gattract = glgetuniformloc("attract");
+      gsize = glgetuniformloc("size");
+   }
+
+   planes[0][0] = 1;
+   planes[0][1] = 0;
+   planes[0][2] = 0;
+   planes[0][3] = size;
+
+   planes[1][0] = 0;
+   planes[1][1] = 1;
+   planes[1][2] = 0;
+   planes[1][3] = size;
+
+   planes[2][0] = 0;
+   planes[2][1] = 0;
+   planes[2][2] = 1;
+   planes[2][3] = size;
+
+   planes[3][0] = -1;
+   planes[3][1] = 0;
+   planes[3][2] = 0;
+   planes[3][3] = size;
+
+   planes[4][0] = 0;
+   planes[4][1] = -1;
+   planes[4][2] = 0;
+   planes[4][3] = size;
+
+   planes[5][0] = 0;
+   planes[5][1] = 0;
+   planes[5][2] = -1;
+   planes[5][3] = size;
+
+   oldt = t;
+   t = klock(); 
+   dt = (t - oldt) * 10;
+   
+   for( k = 0; k < 6; k++)
+   {
+      x = planes[k][0];
+      y = planes[k][1];
+      rotate(x, y, t/2 * 0.35);
+      planes[k][0] = x;
+      planes[k][1] = y;
+       
+      y = planes[k][1];
+      z = planes[k][2];
+      rotate(y, z, t/2);
+      planes[k][1] = y;
+      planes[k][2] = z;
+   }
+
+   //sphere to plane collision
+   for (i = 0; i < n; i++)
+   { 
+      ballx[i] += ballvx[i] * dt / 100;
+      bally[i] += ballvy[i] * dt / 100;
+      ballz[i] += ballvz[i] * dt / 100;
+
+      for( k = 0; k < 6; k++)
+      {
+
+         d = planes[k][0] * ballx[i] + 
+             planes[k][1] * bally[i] +
+             planes[k][2] * ballz[i] +
+             planes[k][3];
+         if(d < ballr[i]) 
+         {
+            //dd = sqrt(planes[k][0]^2 + planes[k][1]^2 + planes[k][2]^2);
+            //printf("%f\n",dd);         
+            ballx[i] -= (d-ballr[i]) * planes[k][0];
+            bally[i] -= (d-ballr[i]) * planes[k][1];
+            ballz[i] -= (d-ballr[i]) * planes[k][2];             
+
+           //reflect
+           dot = planes[k][0] * ballvx[i] + planes[k][1] * ballvy[i] + planes[k][2] * ballvz[i];
+           bounce = 1.0;
+           rx = ballvx[i] - bounce * dot * planes[k][0];
+           ry = ballvy[i] - bounce * dot * planes[k][1];
+           rz = ballvz[i] - bounce * dot * planes[k][2];
+
+           ballvx[i] = rx;
+           ballvy[i] = ry;
+           ballvz[i] = rz;             
+
+         }
+      }
+      
+      //gravity
+      ballvy[i] -= 0.097 * dt * 20;
+
+      //sphere to sphere collision
+      for (j = 0; j < n; j++)
+      {
+         if (i == j) continue;
+         vx = ballx[j] - ballx[i];
+         vy = bally[j] - bally[i];
+         vz = ballz[j] - ballz[i];
+         dist = sqrt(vx ^ 2 + vy ^ 2 + vz ^ 2);
+         d = dist - (ballr[i] + ballr[j]);
+
+         if (d < 0) //collision?
+         { 
+
+            f = 1 / dist;
+            vx *= f;
+            vy *= f;
+            vz *= f;
+
+            ballx[i] += vx * d / 2;
+            bally[i] += vy * d / 2;
+            ballz[i] += vz * d / 2;
+
+            ballx[j] -= vx* d / 2;
+            bally[j] -= vy* d / 2;
+            ballz[j] -= vz* d / 2;
+
+            m = ballr[i] ^ 2 + ballr[j] ^ 2;
+
+            ballvx[i] += vx * d * (ballr[j] ^ 2 / m);
+            ballvy[i] += vy * d * (ballr[j] ^ 2 / m);
+            ballvz[i] += vz * d * (ballr[j] ^ 2 / m);
+
+            ballvx[j] -= vx * d * (ballr[i] ^ 2 / m);
+            ballvy[j] -= vy * d * (ballr[i] ^ 2 / m);
+            ballvz[j] -= vz * d * (ballr[i] ^ 2 / m);
+
+
+         }
+      }
+
+      //friction
+      ballvx[i] *= exp(dt * -.1);
+      ballvy[i] *= exp(dt * -.1);
+      ballvz[i] *= exp(dt * -.1);
+
+
+   
+   }
+
+   for(i = 0; i < n; i++)
+   {
+      mpos[i * 3 + 0] = ballx[i]; 
+      mpos[i * 3 + 1] = -bally[i];
+      mpos[i * 3 + 2] = ballz[i];
+   }
+   
+   glUniform3fv(gmpos, n * 3, mpos);
+   glUniform1i(gbstatus, bstatus);
+   glUniform1i(gnbballs, n);
+   glUniform1f(gradius, radius);
+   glUniform1f(gattract, attract);
+   glUniform1f(gsize, size - 0.1);
+     
+     
+   glcolor(t/2, 0, 0);
+   glquad();
+
+}
+
+rotate(&x, &y, r)
+{ 
+  xx = x;
+  yy = y;
+  x = xx * cos(r) - yy * sin(r);
+  y = yy * cos(r) + xx * sin(r);
+}
+
+
+
+
+
+@vertex_shader: ================================
+varying vec4 p, c;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position; 
+   c = gl_Color;
+}
+
+@fragment_shader: ================================
+
+
+varying vec4 p, c;
+
+uniform vec3 mpos[20];
+uniform int nbballs;
+uniform int bstatus;
+uniform float radius;
+uniform float attract;
+uniform float size;
+
+float cube(vec3 p,vec3 size)
+{
+    return max(max(abs(p.x) - size.x, abs(p.y) - size.y), abs(p.z) - size.z);
+}
+
+
+vec3 rx(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.y = c * q.y - s * q.z;
+   p.z = s * q.y + c * q.z;
+   return p;
+}
+
+vec3 ry(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); s = sin(a);
+   p.x = c * q.x + s * q.z;
+   p.z = -s * q.x + c * q.z;
+   return p;
+}
+
+vec3 rz(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.x = c * q.x - s * q.y;
+   p.y = s * q.x + c * q.y;
+   return p;
+}
+
+
+float f(vec3 p)
+{
+   float sum;
+   p.z -= 0.6; 
+   p.xy *= 0.5;
+
+   if(bstatus == 0)
+   { 
+      sum = 0.0;
+      for(int i = 0; i < nbballs; i++)
+      {
+         float s = length(p - mpos[i]) - radius; 
+         sum += 1.0 / (s + radius);
+      }
+      sum = (1.0 / sum - radius * attract);
+   }
+   else
+   {
+      sum = 99999.9;
+      for(int i = 0; i < nbballs; i++)
+      {
+         float s = length(mpos[i] - p) - radius; 
+         sum = min(s, sum);
+      }
+   }
+
+   vec3 pr = rz(rx(p, c.r), c.r * 0.7);
+
+   float si = size - 0.018;
+   float sc = 0.8;
+   float cubew = max( max(max(cube(pr, vec3(size)),-cube(pr,vec3(sc, si ,si))) , -cube(pr,vec3(si, sc, si))), -cube(pr,vec3(si, si, sc)));
+   return min( max(sum, cube(pr, vec3(size))) ,cubew);
+
+}
+
+vec3 light(vec3 n,vec3 l, vec3 lc)
+{ 
+   l = normalize(l);
+   float la = dot(n, l);
+   if(la <= 0.0) 
+      return vec3(0.0);
+   la = pow(la, 2.0);
+   vec3 r = reflect(-l, n);
+ 
+   float sp = max(dot(r, l), 0.0);
+   sp = pow(sp, 50.0);
+   return vec3(0.5, 0.5, 0.5) * lc * la + sp * lc;             
+}
+
+
+void main(void)
+{
+   vec3 color = vec3(0.0);
+   
+   vec3 ro = vec3(0.0, 0.0, -1.0);
+   vec3 rd = vec3(p.x, -p.y ,1.0);
+
+   
+   float t = 0.0;
+   
+   for(int steps = 0; steps < 100; steps++)
+   {
+      float d = f(ro + t * rd);
+      if(d < 0.001) 
+      {
+         
+         float e = 0.01;
+         vec3 h = ro + t * rd;
+         vec3 n = vec3(f(h + vec3(e,   0.0, 0.0)) - f(h - vec3(e,   0.0, 0.0)),
+                       f(h + vec3(0.0, e,   0.0)) - f(h - vec3(0.0, e,   0.0)), 
+                       f(h + vec3(0.0, 0.0, e))   - f(h - vec3(0.0, 0.0, e)));
+         n = normalize(n);            
+         
+         color = light(n, vec3( 0.0, -1.0,-1.0), vec3(1.0, 1.0, 1.0));
+         color += 0.2;         
+         break;
+      }
+      t += d * 0.9;
+   }
+   gl_FragColor = vec4(color, 1.0);
+
+}

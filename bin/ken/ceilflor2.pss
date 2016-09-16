@@ -1,0 +1,42 @@
+glBegin(GL_QUADS);
+glColor(klock(),0,0);
+x = 2; y = 2; z = 1;
+glVertex(-x,+y,-z);
+glVertex(+x,+y,-z);
+glVertex(+x,-y,-z);
+glVertex(-x,-y,-z);
+glEnd();
+
+@v: //================================
+
+varying vec4 p, c; varying vec3 n;
+void main ()
+{
+   gl_Position = ftransform();
+   c = gl_Color;
+   p = gl_Vertex;
+   n = gl_Normal;
+}
+
+@f: //================================
+
+varying vec4 p, c; varying vec3 n;
+void main ()
+{
+   float x = p.x*-4.0, y = p.y*-4.0, t = c.x;
+//----------------------------------------
+   float cc, ss, x0, y0, z0, x1, y1, z1, v, i;
+      //ceiling&floor demo
+   t = t*.25+.01;
+   cc = cos(t); ss = sin(t);
+  
+   x0 = x; y0 = y; z0 = 4.0;
+   x1 = x0*cc - y0*ss; y1 = y0*cc + x0*ss; z1 = z0;
+   x0 = z1*cc - x1*ss; y0 = x1*cc + z1*ss; z0 = y1;
+   i = 32.0/abs(z0);
+   v = mod(float(int(x0*i)*int(y0*i)),16.0)*z0*z0*.0125;
+//----------------------------------------
+   gl_FragColor = vec4(exp((v-.75)*(v-.75)*-9.0),
+                       exp((v-.50)*(v-.50)*-9.0),
+                       exp((v-.25)*(v-.25)*-9.0),0);
+}

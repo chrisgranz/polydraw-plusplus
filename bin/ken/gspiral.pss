@@ -1,0 +1,370 @@
+@h
+
+   //11/04/2011: Ported from GSPIRAL.C, by Ken Silverman.
+   //Memory-efficient spherical texture mapping. Assigns points using golden ratio spiral/fibonacci idea.
+   //Pros:
+   // * Every texel is represented/viewable
+   // * Every texel is about the same size and close to square aspect ratio
+   //Cons:
+   // * Lots of extra calculations
+
+enum {GOLDRAT=0.3819660112501052}; //Golden Ratio: 1 - 1/((sqrt(5)+1)/2)
+static fibw[45][2], zinc[24], cosrot[24], sinrot[24], azval[20], zmulk, zaddk;
+static fib[47], aztop, npoints;
+
+static ghx, ghy, ghz;
+static znear = 0.001, zfar = 100.0;
+
+()
+{
+   static rx=1, ry=0, rz=0;
+   static dx=0, dy=0, dz=1;
+   static fx=0, fy=-1, fz=0;
+   static px=0, py=2, pz=0, tim = 0;
+   static obstatus = 0, omousx = 0, omousy = 0;
+   if (numframes == 0)
+   {
+      enum {N=2^16}; //Must be even pow2 (for texture2D) (ex: 2^8,2^10,2^12,2^14,2^16,2^18,..)
+      equivec_init(N);
+
+      glsettex(0,"earth.jpg",KGL_NEAREST); enum {XSIZ=512,YSIZ=256};
+      //glsettex(0,"c:\\graphics\\pics\\earth2.jpg",KGL_NEAREST); enum {XSIZ=2048,YSIZ=1024};
+
+      static ibuf[YSIZ][XSIZ], obuf[N];
+      glgettex(0,ibuf,XSIZ,YSIZ,KGL_BGRA32+KGL_NEAREST);
+      x = 0; y = 0; z = 0;
+      for(i=0;i<npoints;i++)
+      {
+         //equiind2vec(i,&x,&y,&z); obuf[i] = ibuf[asin(z)*(-YSIZ/PI)-YSIZ/2][atan2(y,x)*(XSIZ/(PI*2))-XSIZ/2];
+         obuf[i] = ibuf[asin(i*zmulk + zaddk)*(-YSIZ/PI)-YSIZ/2][((i*GOLDRAT)%1)*XSIZ-XSIZ/2];
+      }
+      glsettex(0,obuf,sqrt(npoints),sqrt(npoints),KGL_BGRA32+KGL_NEAREST);
+
+      glUniform2fv(glgetuniformloc("fibw"   ),45,fibw   );
+      glUniform1fv(glgetuniformloc("zinc"   ),24,zinc   );
+      glUniform1fv(glgetuniformloc("cosrot" ),24,cosrot );
+      glUniform1fv(glgetuniformloc("sinrot" ),24,sinrot );
+      glUniform1fv(glgetuniformloc("azval"  ),20,azval  );
+      glUniform1f (glgetuniformloc("zmulk"  )   ,zmulk  );
+      glUniform1f (glgetuniformloc("zaddk"  )   ,zaddk  );
+      glUniform1iv(glgetuniformloc("fib"    ),47,fib    );
+      glUniform1i (glgetuniformloc("aztop"  )   ,aztop  );
+      glUniform1i (glgetuniformloc("npoints")   ,npoints);
+      glUniform1f (glgetuniformloc("npscx"  ),sqrt(1/npoints));
+      glUniform1f (glgetuniformloc("npscy"  ),1/npoints);
+
+      glUniform1f (glgetuniformloc("znear"  ),znear);
+      glUniform1f (glgetuniformloc("zfar"   ),zfar );
+      glUniform1f (glgetuniformloc("mirang" ),((1-npoints)*PI*2*(1.5-sqrt(1.25)))%(PI*2.0));
+
+      printf("(%.f points)\n",N);
+      obstatus = bstatus; omousx = mousx; omousy = mousy;
+
+      ghx = xres/2; ghy = yres/2; ghz = ghx;
+   }
+
+   gluPerspective(ghx/ghz*atan(yres/xres)*360/PI,xres/yres,znear,zfar);
+
+   otim = tim; tim = klock(); dtim = tim-otim;
+
+   if (bstatus%2)
+   {
+      a = (mousx-omousx)*-.01; ox = rx; oy = ry; oz = rz;
+      if ((bstatus%4) < 2)
+      {
+         a *= ghx/ghz; c = cos(a); s = sin(a); 
+         rx = rx*c - fx*s; fx = fx*c + ox*s;
+         ry = ry*c - fy*s; fy = fy*c + oy*s;
+         rz = rz*c - fz*s; fz = fz*c + oz*s;
+      }
+      else
+      {
+         c = cos(a); s = sin(a); 
+         rx = rx*c + dx*s; dx = dx*c - ox*s;
+         ry = ry*c + dy*s; dy = dy*c - oy*s;
+         rz = rz*c + dz*s; dz = dz*c - oz*s;
+      }
+
+      a = (mousy-omousy)*+.01; ox = dx; oy = dy; oz = dz;
+      a *= ghx/ghz; c = cos(a); s = sin(a);
+      dx = dx*c - fx*s; fx = fx*c + ox*s;
+      dy = dy*c - fy*s; fy = fy*c + oy*s;
+      dz = dz*c - fz*s; fz = fz*c + oz*s;
+   }
+
+   f = dtim;
+   if (keystatus[0x2a]) f *= 1/16;
+   if (keystatus[0x36]) f *= 16/1;
+   x = (keystatus[0xcb]-keystatus[0xcd])*f;
+   y = (keystatus[0x52]-keystatus[0x9d])*f;
+   z = (keystatus[0xc8]-keystatus[0xd0])*f;
+   px += rx*x + dx*y + fx*z;
+   py += ry*x + dy*y + fy*z;
+   pz += rz*x + dz*y + fz*z;
+   if (keystatus[0x37] == 1) //KP*
+   {
+      g = ghz; ghz = min((1+f*2)*ghz,ghx*64);
+      if ((g < ghx) && (ghz >= ghx)) { ghz = ghx; keystatus[0x37] = 2; }
+   }
+   if (keystatus[0xb5] == 1) //KP/
+   {
+      g = ghz; ghz = max((1-f*2)*ghz,ghx*.35);
+      if ((g > ghx) && (ghz <= ghx)) { ghz = ghx; keystatus[0xb5] = 2; }
+   }
+
+   glColor(.5,.5,.5);
+   glUniform3f(glgetuniformloc("vrig"),rx,ry,rz);
+   glUniform3f(glgetuniformloc("vdow"),dx,dy,dz);
+   glUniform3f(glgetuniformloc("vfor"),fx,fy,fz);
+   drawsph(-(px*rx + py*ry + pz*rz),
+           -(px*dx + py*dy + pz*dz),
+           -(px*fx + py*fy + pz*fz),1.0);
+
+   obstatus = bstatus; omousx = mousx; omousy = mousy;
+}
+
+getperpvec (nx, ny, nz, &ax, &ay, &az, &bx, &by, &bz)
+{
+   if (fabs(nx) < fabs(ny))
+        { f = 1/sqrt(ny^2+nz^2); ax =    0; ay = nz*f; az =-ny*f; }
+   else { f = 1/sqrt(nx^2+nz^2); ax =-nz*f; ay =    0; az = nx*f; }
+   bx = ny*az - nz*ay;
+   by = nz*ax - nx*az;
+   bz = nx*ay - ny*ax;
+   f = 1/sqrt(bx^2 + by^2 + bz^2); bx *= f; by *= f; bz *= f;
+}
+
+   //This version based on drawcone2.pss (i.e. handles near plane without artifacts)
+   //* modified to render from inside
+drawsph (px0, py0, pz0, pr0)
+{
+   enum {PMAX=64};
+   static px[PMAX], py[PMAX], pz[PMAX], px2[PMAX], py2[PMAX];
+
+      //Pick front-most depth to ensure it passes to fragment shader
+   zdep = -max(pz0-pr0,znear+1e-6);
+   f = 1.0/pr0; px0 *= f; py0 *= f; pz0 *= f;
+   d2 = px0^2 + py0^2 + pz0^2; f = 1-1/d2; cx = px0*f; cy = py0*f; cz = pz0*f;
+
+   ax = 0; ay = 0; az = 0; bx = 0; by = 0; bz = 0; getperpvec(cx,cy,cz,&ax,&ay,&az,&bx,&by,&bz);
+   n = min(max(int((PI*2)*3/sqrt(sqrt(d2))+.5),3),PMAX);
+   da = (PI*2)/n; f = sqrt(f); f *= 1/cos(da/2)/*circumscribe circle*/;
+
+   pn = 0;
+   for(i=n;i>0;i--)
+   {
+      a = (i-.5)*da; c = cos(a)*f; s = sin(a)*f;
+      px[pn] = cx+ax*c+bx*s;
+      py[pn] = cy+ay*c+by*s;
+      pz[pn] = cz+az*c+bz*s; pn++;
+   }
+
+   pn2 = 0; enum {SCISDIST=1e-6};
+   for(i=pn-1,j=0;j<pn;i=j,j++)
+   {
+      if ((pz[i] >= SCISDIST) != (pz[j] >= SCISDIST))
+      {
+         g = (SCISDIST-pz[j])/(pz[i]-pz[j]);
+         f = ghz/((pz[i]-pz[j])*g + pz[j]);
+         px2[pn2] = ((px[i]-px[j])*g + px[j])*f + ghx;
+         py2[pn2] = ((py[i]-py[j])*g + py[j])*f + ghy;
+         pn2++;
+      }
+      if (pz[j] >= SCISDIST)
+      {
+         f = ghz/pz[j];
+         px2[pn2] = px[j]*f + ghx;
+         py2[pn2] = py[j]*f + ghy;
+         pn2++;
+      }
+   }
+
+   glUniform1f(glgetuniformloc("sgnhack"),sgn(d2-pr0^2));
+
+   f = zdep/ghz;
+   glBegin(GL_TRIANGLE_FAN); glNormal(-px0,-py0,-pz0); glTexCoord(pr0^2,1/pr0,0);
+   if (d2 > pr0^2)
+   {
+      for(i=0;i<pn2;i++) glVertex((px2[i]-ghx)*f,(py2[i]-ghy)*f,zdep);
+   }
+   else
+   {
+      f *= 8.0; //UGLY WRONG HACK!
+      glVertex(-xres/2*f,-yres/2*f,zdep);
+      glVertex(+xres/2*f,-yres/2*f,zdep);
+      glVertex(+xres/2*f,+yres/2*f,zdep);
+      glVertex(-xres/2*f,+yres/2*f,zdep);
+   }
+   glEnd();
+}
+
+equiind2vec (i, &x, &y, &z)
+{
+   z = i*zmulk + zaddk; r = sqrt(1 - z*z);
+   a = i*(GOLDRAT*PI*2); x = cos(a)*r; y = sin(a)*r;
+}
+
+equivec_init (n)
+{
+      //Init constants for ind2vec
+   npoints = n;
+   zmulk = 2/n; zaddk = zmulk/2-1;
+
+      //Init Fibonacci table
+   fib[0] = 0; fib[1] = 1;
+   for(i=2;i<47;i++) fib[i] = fib[i-2]+fib[i-1];
+
+   for(i=24-1;i>=0;i--)
+   {
+      f = fib[i]*(GOLDRAT*PI*2);
+      cosrot[i] = cos(f);
+      sinrot[i] = sin(f);
+      zinc[i] = fib[i]*zmulk;
+   }
+
+      //Init fibw LUT
+   t0 = .5/PI; t1 = n*-.5;
+   for(i=0;i<45;i++)
+   {
+      t0 = -t0; fibw[i][0] = fib[i+2]*t0;
+      t1 = -t1; fibw[i][1] = (fib[i+2]*GOLDRAT-fib[i])*t1;
+   }
+
+   t0 = 1/(n*PI);
+   for(aztop=0;aztop<20;aztop++)
+   {
+      t1 = 1-fib[aztop*2+6]*t0; if (t1 < 0) break;
+      azval[aztop+1] = sqrt(t1);
+   }
+}
+
+@v
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   v = gl_Vertex;
+   n = gl_Normal;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f
+#define PI 3.1415926535897932
+#define GOLDRAT 0.3819660112501052 //Golden Ratio: 1 - 1/((sqrt(5)+1)/2)
+uniform vec2 fibw[45];
+uniform float zinc[24], cosrot[24], sinrot[24], azval[20], zmulk, zaddk;
+uniform int fib[47], aztop, npoints;
+
+uniform float npscx, npscy, znear, zfar, sgnhack, mirang;
+varying vec4 p, v, c, t;
+varying vec3 n;
+uniform vec3 vrig, vdow, vfor;
+uniform sampler2D tex0;
+
+   //Good quality (~748.5 cycles/vec2ind)
+int equivec2ind (in vec3 op, out vec3 bp)
+{
+   vec3 p, np;
+   float f, c0, s0, z0, d0, d1, xy, zz, fuk = 0.0;
+   int b, i, j, k, bestc;
+
+   //p = normalize(p); //<-must enable if necessary
+   p = op;
+   if (op.z < 0.0) //HACK:uses symmetry to avoid some undetermined precision bug only near south pole :/
+   {
+      p.x = cos(mirang)*op.x - sin(mirang)*op.y;
+      p.y =-cos(mirang)*op.y - sin(mirang)*op.x;
+      p.z *= -1.0;
+   }
+
+   xy = atan(-p.x/p.y)-PI*.5+float(p.y>=0.0)*PI; //xy = atan2(p.y,p.x);
+   bestc = aztop; f = abs(p.z);
+   do
+   {
+      if (f < azval[bestc]) break;
+      bestc--;
+   } while (bestc > 0);
+
+   zz = p.z + 1.0;
+   f = dot(fibw[bestc],vec2(xy,zz)); i = int(floor(f)); bestc++;
+   f = dot(fibw[bestc],vec2(xy,zz)); j = int(floor(f));
+
+   i = fib[bestc+2]*i + fib[bestc+1]*j;
+   z0 = float(i)*zmulk + zaddk;
+   if ((i >= 0) && (i < npoints))
+   {
+#if 0
+      f = float(i)*(GOLDRAT*PI*2.0); //GPU has insufficient precision for direct calculation! NOTE:0<=i<npoints
+#else
+      f = dot(vec4(i&255,(i>>8)&255,(i>>16)&255,(i>>24)&255),
+              vec4(2.3999632297286531,4.9216120141152748,3.2956141775930670,1.7303983017606384));
+         //consts ^ are: ((GOLDRAT     )%1)*PI*2
+         //              ((GOLDRAT*2^ 8)%1)*PI*2
+         //              ((GOLDRAT*2^16)%1)*PI*2
+         //              ((GOLDRAT*2^24)%1)*PI*2
+#endif
+      c0 = cos(f); s0 = sin(f);
+      j = i; f = sqrt(1.0-z0*z0); bp = vec3(c0*f,s0*f,z0); d0 = dot(bp,p);
+   } else d0 =-1e32;
+
+   b = bestc+3;
+   do
+   {
+      k = fib[b]+i;
+      if ((k >= 0) && (k < npoints))
+      {
+         zz = zinc[b] + z0;
+         f = sqrt(1.0-zz*zz);
+         np = vec3((c0*cosrot[b] - s0*sinrot[b])*f,(s0*cosrot[b] + c0*sinrot[b])*f,zz);
+         d1 = dot(np,p); if (d1 > d0) { j = k; d0 = d1; bp = np; }
+      }
+      b--;
+   } while (b != bestc);
+   if (op.z < 0.0)
+   {
+      np = bp;
+      bp.x = cos(mirang)*np.x - sin(mirang)*np.y;
+      bp.y =-cos(mirang)*np.y - sin(mirang)*np.x;
+      bp.z *= -1.0;
+      j = npoints-1-j;
+   }
+   return(j);
+}
+
+void main ()
+{
+   vec3 l = normalize(vec3(1.0,-1.0,-1.0)); //l = normalized light direction
+   vec3 u, r, nn;
+   float Za, Zb, Zc, insqr, g, rad2 = t.x, rrad = t.y, f, d;
+
+      //ix = v.x*g; iy = v.y*g; iz = v.z*g
+      //(ix-n.x)^2 + (iy-n.y)^2 + (iz-n.z)^2 = r^2
+   Za = dot(v.xyz,v.xyz);
+   Zb = dot(v.xyz,n);
+   Zc = dot(n,n) - rad2;
+   insqr = Zb*Zb - Za*Zc; if (insqr < 0.0) discard;
+   g = (Zb-sqrt(insqr)*sgnhack)/Za;
+
+   nn = (v.xyz*g-n)*rrad; //n = normalize normal vector
+   
+   //f = dot(nn,l)*-.5+.5;
+   //u = normalize(v.xyz); //u = normalize view direction
+      //r = reflected view direction
+      //   /|\
+      // r/_|_\u
+      //    |n
+   //d = max(dot(dot(nn,l)*nn*2.0-l,u),0.0); //Standard reflection
+   //d *= d; d *= d; d *= d; f += d;
+   f = 1.0;
+
+   gl_FragDepth = (znear*zfar/(zfar-znear))/(v.z*g)+zfar/(zfar-znear);
+
+   nn = nn.x*vrig + nn.y*vdow + nn.z*vfor;
+
+   //c *= texture2D(tex0,vec2(atan2(-nn.z,nn.x)/(3.1415926535*2.0)-n.x*.25,atan2(sqrt(nn.x*nn.x + nn.z*nn.z),nn.y)/3.1415926535))*2.0;
+   int i = equivec2ind(nn,r); f = distance(r,nn); f = 1.0-f*f*npoints*(1.0/16.0);
+   gl_FragColor = texture2D(tex0,vec2(float(i)*npscx,float(i)*npscy))*f;
+}

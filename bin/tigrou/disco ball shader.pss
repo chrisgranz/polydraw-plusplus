@@ -1,0 +1,69 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+()
+{
+   glcolor(klock(), yres/xres, 0);
+   glquad();
+}
+
+@v: ========================================
+
+varying vec4 p, c;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+}
+
+@f: ========================================
+
+varying vec4 p, c;
+
+void main()
+{
+   float x, y, z, u, v, PI;
+   float uu, vv, a, cl, time;
+   float q1, q2, l, d;
+
+   PI = 3.1415;
+   x = p.x / c.g * 1.3;
+   y = p.y  * 1.3;
+   z = -sqrt(abs(1.0 - x * x - y * y));
+   time = c.r;
+
+   d = 1.0 - length(vec2(x, y));
+   if(d < 0.0) 
+      discard;
+
+   y = y * cos(0.3) - z * sin(0.3);
+
+   v = acos(y) / PI;
+   u = acos(x / (sin(v * PI))) / (2.0 * PI);
+
+   uu = u * 200.0 * 0.6 + time;
+   vv = v * 100.0 * 0.6;
+
+   a = cos(uu) * sin(vv);
+
+
+
+   q1 = float(int(vv / PI));
+   q2 = float(int((uu + PI / 2.0) / PI));
+
+   q1 = cos(q1);
+   l = q1 + sin(q2 + time + cos(q1 * 25.0));
+
+   cl = pow(abs(a), 0.25) * 0.1 / l;
+   cl = pow(d, 0.6) * cl;
+
+   vec3 color;
+   if (cl < 0.0)
+      color = -cl * vec3(1.0, 0.25, 0.0);
+   else
+      color =  cl * vec3(1.0, 2.0, 2.0);
+  
+   gl_FragColor = vec4(color, 1.0);
+
+
+}

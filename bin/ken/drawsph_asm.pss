@@ -1,0 +1,130 @@
+() //drawsph() using arb asm.. by Ken Silverman
+{
+	if (numframes == 0)
+	{
+		fov = atan(yres/xres)*2*180/PI;
+		glsettex(0,"earth.jpg");
+		static sumtim = 0, sumnframe = 0, sumn = 32;
+	}
+
+	tim = klock()%2; glklockstart();
+	glColor(.5,.5,.5);
+	for(z=2;z<24;z+=2)
+	{
+		//glColor(.8-z/50,.7-z/50,.6-z/50);
+		for(y=tim-int(z*.375)*2-3;y<z*.75+1;y+=2)
+			for(x=tim-z-1;x<z+1;x+=2) drawsph(x,-y,-z,.5);
+	}
+	//n = 256; for(i=0;i<n;i++) drawsph(cos(i/n*(PI*2)),sin(i/n*(PI*2)),-2,.25);
+	sumtim += glklockelapsed();
+	if (numframes >= sumnframe)
+	{
+		printf("\r%5.3f msec ",(sumtim/sumn)*1e3);
+		sumtim = 0; sumnframe += sumn;
+	}
+}
+
+drawsph (cx, cy, cz, cr)
+{
+	k0 = cz^2 - cr^2; k2 = 1/k0;
+	k1 = cx^2 + cy^2;
+	f = k2*cz; x = cx*f; y = cy*f; //ellipse center
+	f = k2*cr;
+	u = sqrt(k0+k1)*f; //ellipse major axis leng
+	v = sqrt(k0   )*f; //ellipse minor axis leng
+	if (k1 > 1e-7) { f = 1/sqrt(k1); dx = cx*f; dy = cy*f; } else { dx = 1; dy = 0; }
+
+	enum {NMAX=16};
+	static ncur = 0, clut[NMAX] = {0}, slut[NMAX] = {0};
+
+	n = 3; if (cz*-.05 < cr) { n = 4; if (cz*-.10 < cr) { n = 5; if (cz*-.20 < cr) n = 6; } }
+	if (n != ncur)
+	{
+		ncur = n;
+		r = 1/cos(PI/ncur); j = PI*2/ncur;
+		for(i=NMAX-1;i>=0;i--)
+		{
+			clut[i] = cos((i+.5)*j)*r;
+			slut[i] = sin((i+.5)*j)*r;
+		}
+	}
+
+	z = cz-cr; //Pick front-most depth to ensure it passes to fragment shader   
+	glProgramEnvParam(0,1/sqrt(3),-1/sqrt(3),-1/sqrt(3),1/cr);
+	glProgramEnvParam(1,cx,cy,cz,k0+k1);
+	glBegin(GL_TRIANGLE_FAN);
+	for(i=0;i<ncur;i++)
+	{
+		c = clut[i]*u; s = slut[i]*v;
+		glVertex((x+dx*c+dy*s)*z,(y+dy*c-dx*s)*z,z);
+	}
+	glEnd();
+}
+
+	//Excellent ARB ASM sites:
+	//http://www-f9.ijs.si/~matevz/docs/007-2392-003/sgi_html/ch13.html
+	//http://petewarden.com/notes/archives/2005/05/fragment_progra_2.html
+
+@v: //Vertex shader =========
+!!ARBvp1.0
+PARAM ModelViewProj[4] = {state.matrix.mvp};
+TEMP temp;
+DP4 temp.x, ModelViewProj[0], vertex.position;
+DP4 temp.y, ModelViewProj[1], vertex.position;
+DP4 temp.z, ModelViewProj[2], vertex.position;
+DP4 temp.w, ModelViewProj[3], vertex.position;
+MOV result.position, temp;
+MOV result.color, vertex.color;
+MOV result.texcoord, vertex.position; #NOTE:usually is: , vertex.texcoord;
+END
+
+@f: //Fragment shader =========
+!!ARBfp1.0 #ARB ASM port of DRAWSPH.PSS
+TEMP a, v, n, d, sc;
+DP3 a.x, fragment.texcoord, fragment.texcoord;  #Za = vx*vx + vy*vy + vz*vz
+DP3 a.y, fragment.texcoord, program.env[1];     #Zb = vx*cx + vy*cy + vz*cz
+MOV a.z, program.env[1].w;                      #Zc = cx*cx + cy*cy + cz*cz - c.r*c.r
+MUL v, a.yxyx, a.yzyz;                          #f = Zb*Zb - Za*Zc
+SUB v.x, v.x, v.y;
+KIL v.x;                                        #if (f < 0.0) discard;
+RSQ v.y, v.x;                                   #f = Zb-sqrt(f)
+MAD v.x, v.x, -v.y, a.y;
+RCP v.w, a.x;                                   #f /= Za
+MUL v.x, v.x, v.w;
+MAD n, fragment.texcoord, v.x, -program.env[1]; #f.xyz = v.xyz * f.xxx - c.xyz
+MUL n, n, program.env[0].w;                     #f.xyz *= (1/c.r)
+DP3 sc.x, n, program.env[0];                    #f.x = dot3(f.xyz,norm(1,-1,-1))
+MAD sc.x, sc.x, {-.5}, {.5};                    #f.x = f.x*-.5 + .5;
+
+RSQ a.x, a.x;                                   #a = norm(fragment.texcoord);
+MUL a, fragment.texcoord, a.x;
+
+	#Standard reflection: d = max(dot(dot(nn,l)*nn*2.0-l,u),0.0);
+DP3 d.w, n, program.env[0];
+MUL d, d.w, n;
+MAD d, d, {2.0,2.0,2.0,0.0}, -program.env[0];
+DP3_SAT d.x, d, a;
+
+	#Blinn-Phong shading: d = min(dot(normalize(u+l),nn),0.0); d *= d; d *= d;
+#ADD d, a, program.env[0];
+#DP3 d.w, d, d;
+#RSQ d.w, d.w;
+#MUL d, d, d.w;
+#DP3 d.x, d, n;
+#MIN d.x, d.x, {0.0};
+#MUL d.x, d.x, d.x;
+#MUL d.x, d.x, d.x;
+
+MUL d.x, d.x, d.x;
+MUL d.x, d.x, d.x;
+MAD sc.x, d.x, d.x, sc.x;
+
+	#gl_FragDepth = fragment.texcoord.z*v.x*-.0001;
+	#Enable this block if you need accurate Z-buffer; notable slowdown though
+#MUL a.z, fragment.texcoord.z, v.x;
+#MUL result.depth.z, a.z, {0,0,-.0001,0};
+
+MUL result.color, fragment.color, sc.x;         #return(col.xyz*f.xxx}
+#SLT result.color.r, fragment.texcoord.z, {-3}; #for debug only!
+
+END

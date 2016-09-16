@@ -1,0 +1,65 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+   t = klock();
+   setfov(62.79);
+
+   gltranslate(0, 0, -25 + sin(t) * 10);
+   glrotate(t * 50, 1, 0.7, -0.6);
+
+   sphere(t);
+}
+
+sphere(t)
+{
+   inc = PI / 10;
+   r = 20;
+
+   for (w = -PI; w < PI; w += inc)
+   {
+      for (l = 0; l < PI; l += inc)
+      {
+         r = sin(t + l) * 22;
+         glcolor(cos(w), sin(l), 0);
+
+         glbegin(GL_QUADS);
+            gltexcoord(0, 0);
+            drawpoint(w, l, r);
+            gltexcoord(1, 0);
+            drawpoint(w + inc, l, r);
+            gltexcoord(1, 1);
+            drawpoint(w + inc, l + inc, r);
+            gltexcoord(0, 1);
+            drawpoint(w, l + inc, r);
+         glend();
+
+      }
+   }
+}
+
+
+drawpoint(w, l, r)
+{
+   x = cos(w) * sin(l) * r;
+   y = sin(w) * r;
+   z = cos(w) * cos(l) * r;
+   glVertex(x, y, z);
+}
+
+
+
+@v: ====================
+varying vec4 c;
+void main()
+{
+   gl_Position = ftransform();
+   c = gl_Color;
+}
+
+
+@f ====================
+varying vec4 c;
+void main()
+{
+   gl_FragColor = c;
+}

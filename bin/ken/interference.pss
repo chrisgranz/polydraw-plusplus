@@ -1,0 +1,25 @@
+glBegin(GL_QUADS);
+glColor(klock(),0,0);
+glVertex(-2,+2,-1);
+glVertex(+2,+2,-1);
+glVertex(+2,-2,-1);
+glVertex(-2,-2,-1);
+glEnd();
+
+@v: //================================
+varying vec4 p, c;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Vertex; c = gl_Color;
+}
+
+@f: //================================
+varying vec4 p, c;
+void main ()
+{
+   float y2 = p.y*p.y;
+   float r = p.x-.25; r = abs(mod(sqrt(r*r+y2)*16.0-c.x,1.0)-.5);
+   float b = p.x+.25; b = abs(mod(sqrt(b*b+y2)*16.0-c.x,1.0)-.5);
+   gl_FragColor = vec4(r+.25,r+b,b+.25,0.0);
+}

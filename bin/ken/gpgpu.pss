@@ -1,0 +1,102 @@
+//Experimental GPGPU on shader type stuff.. not close to optimized.
+//Shows usage of glgettex() and extended glcapture().
+//Functions may change in the future.
+
+static mode = 1;
+if (bstatus) { bstatus = 0; mode = 1-mode; }
+
+if (mode == 0)
+{
+   enum {XT=640,YT=240};
+   glcapture(2,XT,YT,KGL_VEC4);
+   glsetshader("v","interf"); glColor(klock()*4,0,0); glquad(1);
+   glcaptureend(2);
+   static buf[YT][XT][4];
+   glgettex(2,buf,XT,YT,KGL_VEC4);
+   if ((numframes%16) == 0)
+      printf("%.2f %.2f %.2f %.2f\n",buf[0][0][0],buf[0][0][1],buf[0][0][2],buf[0][0][3]);
+   for(y=0;y<YT;y++)
+      for(x=0;x<XT;x++)
+      {
+         if (   x+   y < XT/10) buf[y][x][0] = 1.0;
+         if (XT-x+   y < XT/10) buf[y][x][1] = 1.0;
+         if (XT-x+YT-y < XT/10) buf[y][x][2] = 1.0;
+         if (   x+YT-y < XT/10) buf[y][x][3] = 1.0;
+      }
+   glsettex(2,buf,XT,YT,KGL_VEC4);
+}
+else
+{     //propagate..
+   enum {XS=512,YS=512}; static buf1[XS*YS], buf2[XS*YS], cnt = -1;
+   if (cnt < 0)
+   {
+      for(i=0;i<XS*YS;i++) { buf1[i] = .5; buf2[i] = .5; }
+      glsettex(0,buf1,XS,YS,KGL_FLOAT);
+      glsettex(1,buf1,XS,YS,KGL_FLOAT);
+   }
+   for(c=0;c<1;c++)
+   {
+      cnt = (cnt == 0);
+      glsettex(0,buf1,XS,YS,KGL_FLOAT);
+      
+      for(i=0;i<XS*YS;i++) buf1[i] = buf2[i];
+      buf1[mousy*XS+mousx] += sin(klock()*10);
+      glsettex(1,buf1,XS,YS,KGL_FLOAT);
+   
+      glcapture(2,XS,YS,KGL_FLOAT);
+      glactivetexture(GL_TEXTURE0+0); glbindtexture(0);
+      glactivetexture(GL_TEXTURE0+1); glbindtexture(1);
+      glsetshader("v","addthem"); glquad(1); glcaptureend(2);
+   
+      glgettex(2,buf2,XS,YS,KGL_FLOAT);
+   }
+}
+
+glsetshader("v","showtex");
+glactivetexture(0); glbindtexture(2);
+glBegin(GL_QUADS);
+glTexCoord(0,0); glVertex(-1,+1,-1.4);
+glTexCoord(1,0); glVertex(+1,+1,-1.4);
+glTexCoord(1,1); glVertex(+1,-1,-1.4);
+glTexCoord(0,1); glVertex(-1,-1,-1.4);
+glEnd();
+
+@v:v //================================
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   v = gl_Vertex;
+   n = gl_Normal;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f:interf //================================
+varying vec4 p, c;
+void main () //see interference.pss ;)
+{
+   float y2 = p.y*p.y, tt = c.x*.25;
+   float r = p.x-.5; r = abs(mod(sqrt(r*r+y2)*8.0-tt,1.0)-.5);
+   float b = p.x+.5; b = abs(mod(sqrt(b*b+y2)*8.0-tt,1.0)-.5);
+   gl_FragColor = vec4(r+.25,r+b,b+.25,-17.29);
+}
+
+@f:addthem //===============================
+varying vec4 t;
+uniform sampler2D tex0, tex1;
+void main ()
+{
+   gl_FragColor = (texture2D(tex1,t.xy-vec2(+1.0/512.0,0.0))
+                +  texture2D(tex1,t.xy-vec2(-1.0/512.0,0.0))
+                +  texture2D(tex1,t.xy-vec2(0.0,+1.0/512.0))
+                +  texture2D(tex1,t.xy-vec2(0.0,-1.0/512.0)))*.5
+                -  texture2D(tex0,t.xy);
+}
+
+@f:showtex //===============================
+varying vec4 t;
+uniform sampler2D tex0;
+void main () { gl_FragColor = texture2D(tex0,t.xy); }

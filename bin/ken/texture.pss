@@ -1,0 +1,96 @@
+()
+{
+	if (numframes == 0)
+	{
+			//texture 0: load from file
+		glsettex(0,"earth.jpg");
+
+			//texture 1: generate on CPU
+		enum {SIZ=256}; static buf[SIZ][SIZ];
+		for(y=0;y<SIZ;y++) for(x=0;x<SIZ;x++)
+			buf[y][x] = int(min(x%32,15)*1)*0x040302 //Generate wood texture
+						 + int(min((int(x/32)*47+y)%128,15)*1)*0x050302
+						 + int(noise(noise(x/16,y/32)*4,noise(x/10,y/32)*4)*20)*0x020201+0x303030
+						 + 0x40000000;
+		glsettex(1,buf,SIZ,SIZ,KGL_BGRA32);
+	}
+
+	tim = klock();
+
+		//texture 2: generate on GPU (animation)
+	glcapture();
+	glsetshader(0); glColor(tim*4,0,0); glquad(1);
+	glcaptureend(2);
+
+	//glalphaenable();
+
+	glactivetexture(GL_TEXTURE0+0); glbindtexture(0);
+	glactivetexture(GL_TEXTURE0+1); glbindtexture(1);
+	glactivetexture(GL_TEXTURE0+2); glbindtexture(2);
+	glsetshader(1); glColor(tim,0,0); 
+	static vert[24] = {0,1,3,2, 5,4,6,7, 4,0,2,6, 1,5,7,3, 4,5,1,0, 2,3,7,6};
+	static vx[8] = {-1,+1,-1,+1,-1,+1,-1,+1};
+	static vy[8] = {-1,-1,+1,+1,-1,-1,+1,+1};
+	static vz[8] = {-1,-1,-1,-1,+1,+1,+1,+1};
+	static rx[8], ry[8], rz[8];
+	t = klock()/4; c = cos(t); s = sin(t);
+	for(i=0;i<8;i++)
+	{
+		rx[i] = vx[i]; ry[i] = vy[i]; rz[i] = vz[i];
+		ox = rx[i]; oz = rz[i]; rx[i] = ox*c + oz*s; rz[i] = oz*c - ox*s;
+		ox = rx[i]; oy = ry[i]; rx[i] = ox*c - oy*s; ry[i] = oy*c + ox*s;
+		oy = ry[i]; oz = rz[i]; ry[i] = oy*c + oz*s; rz[i] = oz*c - oy*s;
+		rz[i] += (mousy/yres-.5)*4 + 1;
+	}
+	for(s=0;s<2;s++)
+	{
+		if (s) glcullface(GL_BACK);
+		  else glcullface(GL_FRONT);
+		glBegin(GL_QUADS);
+		for(i=0;i<24;i+=4)
+			for(j=0;j<4;j++)
+			{
+				glTexCoord((3-j)*j/2,j>1);
+				k = vert[i+j]; glVertex(rx[k],-ry[k],-rz[k]);
+			}
+		glEnd();
+	}
+}
+
+@v: //================================
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+	gl_Position = ftransform();
+	p = gl_Position;
+	v = gl_Vertex;
+	n = gl_Normal;
+	c = gl_Color;
+	t = gl_MultiTexCoord0;
+}
+
+@f: //================================
+varying vec4 p, c;
+void main () //see interference.pss ;)
+{
+	float y2 = p.y*p.y, tt = c.x*.25;
+	float r = p.x-.5; r = abs(mod(sqrt(r*r+y2)*8.0-tt,1.0)-.5);
+	float b = p.x+.5; b = abs(mod(sqrt(b*b+y2)*8.0-tt,1.0)-.5);
+	gl_FragColor = vec4(r+.25,r+b,b+.25,0.0);
+}
+
+@
+varying vec4 p, v, c, t; varying vec3 n;
+uniform sampler2D tex0, tex1, tex2;
+void main () //example of multitexture
+{
+	vec4 c0 = texture2D(tex0,vec2(t.x-c.x*.1,t.y       ));
+	vec4 c1 = texture2D(tex1,vec2(t.x       ,t.y-c.x*.1));
+	vec4 c2 = texture2D(tex2,vec2(t.x       ,t.y       ));
+	float cy = mod(c.x+p.x+p.y,3.0);
+	float cz = mod(cy,1.0);
+		  if (cy < 1.0) gl_FragColor = mix(c0,c1,cz);
+	else if (cy < 2.0) gl_FragColor = mix(c1,c2,cz);
+	else               gl_FragColor = mix(c2,c0,cz);
+}

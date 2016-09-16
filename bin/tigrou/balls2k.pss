@@ -1,0 +1,252 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+//"drawsph" sphere rendering based on Ken's drawsph.pss
+enum
+{
+   n = 175,
+   radius = 2
+};
+
+static ballx[n], bally[n], ballz[n], ballr[n];
+static ballvx[n], ballvy[n], ballvz[n]; 
+static planes[6][4];
+static t;
+
+()
+{
+   setfov(42.79);
+   rad = 30;
+
+   if (numframes == 0)
+   {
+      for (i = 0; i < n; i++)
+      {
+         ballr[i] = radius+ rnd*3;
+         ballx[i] = rnd;
+         bally[i] = rnd;
+         ballz[i] = rnd;
+      }
+   }
+
+   planes[0][0] = 1; planes[0][1] = 0; planes[0][2] = 0; planes[0][3] = rad;
+   planes[1][0] = 0; planes[1][1] = 1; planes[1][2] = 0; planes[1][3] = rad;
+   planes[2][0] = 0; planes[2][1] = 0; planes[2][2] = 1; planes[2][3] = rad;
+   planes[3][0] =-1; planes[3][1] = 0; planes[3][2] = 0; planes[3][3] = rad;
+   planes[4][0] = 0; planes[4][1] =-1; planes[4][2] = 0; planes[4][3] = rad;
+   planes[5][0] = 0; planes[5][1] = 0; planes[5][2] =-1; planes[5][3] = rad;
+
+   oldt = t;
+   t = klock(); 
+   dt = (t - oldt) * 10;
+
+
+   for( k = 0; k < 6; k++)
+   {
+      x = planes[k][0];
+      y = planes[k][1];
+      rotate(&x, &y, t/2);
+      planes[k][0] = x;
+      planes[k][1] = y;
+       
+      y = planes[k][1];
+      z = planes[k][2];
+      rotate(&y, &z, t/2);
+      planes[k][1] = y;
+      planes[k][2] = z;
+   }
+
+
+
+  for (i = 0; i < n; i++)
+  { 
+      ballx[i] += ballvx[i] * dt;
+      bally[i] += ballvy[i] * dt;
+      ballz[i] += ballvz[i] * dt;
+
+      //sphere to plane collision
+      for( k = 0; k < 6; k++)
+      {
+
+         d = planes[k][0] * ballx[i] + 
+             planes[k][1] * bally[i] +
+             planes[k][2] * ballz[i] +
+             planes[k][3];
+         if(d < ballr[i]) 
+         {
+            //dd = sqrt(planes[k][0]^2 + planes[k][1]^2 + planes[k][2]^2);
+            //printf("%f\n",dd);         
+            ballx[i] -= (d-ballr[i]) * planes[k][0];
+            bally[i] -= (d-ballr[i]) * planes[k][1];
+            ballz[i] -= (d-ballr[i]) * planes[k][2];             
+
+           //reflect
+           dot = planes[k][0] * ballvx[i] + 
+                 planes[k][1] * ballvy[i] + 
+                 planes[k][2] * ballvz[i];
+           
+           bounce = 1.0; //greater than 1 to bounce against planes
+           ballvx[i] -= bounce * dot * planes[k][0];
+           ballvy[i] -= bounce * dot * planes[k][1];
+           ballvz[i] -= bounce * dot * planes[k][2];        
+
+         }
+      }
+      
+
+      ballvy[i] -= 0.097 * dt * 20;
+
+      //sphere to sphere collision
+      for (j = 0; j < n; j++)
+      {
+         if (i == j) continue;
+         vx = ballx[j] - ballx[i];
+         vy = bally[j] - bally[i];
+         vz = ballz[j] - ballz[i];
+         dist = sqrt(vx ^ 2 + vy ^ 2 + vz ^ 2);
+         d = dist - (ballr[i] + ballr[j]);
+
+         if (d < 0) //collision?
+         { 
+
+
+            f = 1 / dist;
+            vx *= f;
+            vy *= f;
+            vz *= f;
+
+            ballx[i] += vx * d / 2;
+            bally[i] += vy * d / 2;
+            ballz[i] += vz * d / 2;
+
+            ballx[j] -= vx* d / 2;
+            bally[j] -= vy* d / 2;
+            ballz[j] -= vz* d / 2;
+
+            m = ballr[i] ^ 2 + ballr[j] ^ 2;
+
+            ballvx[i] += vx * d * (ballr[j] ^ 2 / m);
+            ballvy[i] += vy * d * (ballr[j] ^ 2 / m);
+            ballvz[i] += vz * d * (ballr[j] ^ 2 / m);
+
+            ballvx[j] -= vx * d * (ballr[i] ^ 2 / m);
+            ballvy[j] -= vy * d * (ballr[i] ^ 2 / m);
+            ballvz[j] -= vz * d * (ballr[i] ^ 2 / m);
+
+
+         }
+      }
+
+      //friction
+      ballvx[i] *= exp(dt * -.1);
+      ballvy[i] *= exp(dt * -.1);
+      ballvz[i] *= exp(dt * -.1);
+
+   }
+   
+   //draw balls
+   glsetshader("drawsph","drawsph");
+   glColor(.4,.5,.7);
+   for (i = 0; i < n; i++)
+      drawsph(ballx[i],bally[i],ballz[i]-200,ballr[i]);
+
+   //draw wireframe cube
+   glsetshader("lines","lines");
+   gltranslate(0, 0, -200);
+   glrotate(t/2 * 360 / (2 * PI), 1, 0, 0);
+   glrotate(t/2 * 360 / (2 * PI), 0, 0, 1);
+   glcolor(0, 1, 0);
+   glBegin(GL_LINES);
+   for(y=-rad;y<=rad;y+=rad*2)
+      for(x=-rad;x<=rad;x+=rad*2)
+      {
+         glVertex(x,y,rad); glVertex(x,y,-rad);
+         glVertex(x,rad,y); glVertex(x,-rad,y);
+         glVertex(rad,x,y); glVertex(-rad,x,y);
+      }
+   glEnd();
+}
+
+rotate(&x, &y, r)
+{ 
+  xx = x;
+  yy = y;
+  x = xx * cos(r) - yy * sin(r);
+  y = yy * cos(r) + xx * sin(r);
+}
+
+drawsph (cx, cy, cz, cr) //Based on Ken's drawsph.pss
+{
+   k0 = cz^2 - cr^2; k2 = 1/k0;
+   k1 = cx^2 + cy^2;
+   f = k2*cz; x = cx*f; y = cy*f; //ellipse center
+   f = k2*cr;
+   u = sqrt(k0+k1)*f; //ellipse major axis leng
+   v = sqrt(k0   )*f; //ellipse minor axis leng
+   if (k1 > 1e-7) { f = 1/sqrt(k1); dx = cx*f; dy = cy*f; } else { dx = 1; dy = 0; }
+
+   enum {NMAX=16};
+   static ncur = 0, clut[NMAX] = {0}, slut[NMAX] = {0};
+
+   nn = 3; if (cz*-.02 < cr) { nn = 4; if (cz*-.04 < cr) { nn = 5; if (cz*-.08 < cr) nn = 6; } }
+   if (nn != ncur)
+   {
+      ncur = nn;
+      r = 1/cos(PI/ncur); j = PI*2/ncur;
+      for(i=NMAX-1;i>=0;i--)
+      {
+         clut[i] = cos((i+.5)*j)*r;
+         slut[i] = sin((i+.5)*j)*r;
+      }
+   }
+
+   z = cz-cr; //Pick front-most depth to ensure it passes to fragment shader   
+   glBegin(GL_TRIANGLE_FAN); glNormal(cx,cy,cz); glTexCoord(cr^2,1/cr,0);
+   for(i=0;i<ncur;i++)
+   {
+      c = clut[i]*u; s = slut[i]*v;
+      glVertex((x+dx*c+dy*s)*z,(y+dy*c-dx*s)*z,z);
+   }
+   glEnd();
+}
+
+
+@v:lines
+varying vec4 c;
+void main () { gl_Position = ftransform(); c = gl_Color; }
+
+@f:lines
+varying vec4 c;
+void main () { gl_FragColor = c; }
+
+@v:drawsph //Based on Ken's drawsph.pss
+varying vec4 v, c, t, n;
+void main ()
+{
+   gl_Position = ftransform();
+   v = gl_Vertex; n = vec4(gl_Normal,0); c = gl_Color; t = gl_MultiTexCoord0;
+}
+
+@f:drawsph //Based on Ken's drawsph.pss
+varying vec4 v, c, t, n;
+void main ()
+{
+   vec3 l = normalize(vec3(1.0,-1.0,-1.0)), u, nn; //l = normalized light direction
+   float Za, Zb, Zc, insqr, g, rad2 = t.x, rrad = t.y, f, d;
+
+      //ix = v.x*g; iy = v.y*g; iz = v.z*g
+      //(ix-n.x)^2 + (iy-n.y)^2 + (iz-n.z)^2 = r^2
+   Za = dot(v.xyz,v.xyz);
+   Zb = dot(v.xyz,vec3(n));
+   Zc = dot(n,n) - rad2;
+   insqr = Zb*Zb - Za*Zc; if (insqr < 0.0) discard;
+   g = (Zb-sqrt(insqr))/Za;
+
+   nn = (v.xyz*g-vec3(n))*rrad; //n = normalized normal vector
+   f = dot(nn,l)*-.5+.5;
+
+   u = normalize(v.xyz); //u = normalized incoming ray direction
+   d = max(dot(dot(nn,l)*nn*2.0-l,u),0.0); //standard reflection
+   d *= d; d *= d; d *= d; f += d;
+
+   float znear = 0.1, zfar = 1000.0; gl_FragDepth = (znear*zfar/(zfar-znear))/(v.z*g)+zfar/(zfar-znear);
+   gl_FragColor = c*f;
+}

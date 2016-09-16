@@ -1,0 +1,77 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+t = klock();
+
+glcolor(t * 1000,t,0);
+glquad();
+
+
+@v: =========================================
+
+varying vec4 p, t, color;
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   t = gl_MultiTexCoord0;
+   color = gl_Color;
+
+}
+
+@f: =========================================
+
+varying vec4 p, t, color;
+
+
+void main()
+{
+
+   vec2 z, c;
+
+   int i;
+   float scale;
+
+   float d, sd, sa;
+   int iter = 100;
+   vec2 center;
+
+   center.x = 0.85;
+   center.y = 0.21;
+   scale = 0.012;
+
+
+   float tx = (t.x - 0.5) + sin(p.y * 4.0+color.g) * 0.02;
+   float ty = (t.y - 0.5) + cos(p.x * 4.0+color.g) * 0.02;
+
+   c.x = 1.3333 * tx * scale - center.x;
+   c.y = ty * scale - center.y;
+   z = c + sin(color.r / 2222.0) * 0.01;
+   
+   sd = 0.0;
+   for (i = 0; i < iter; i++)
+   {
+      float x = (z.x * z.x - z.y * z.y) + c.x;
+      float y = (z.y * z.x + z.x * z.y) + c.y;
+      d = x * x + y * y;
+      if (d > 4.0) break;
+      z.x = x;
+      z.y = y;
+      sd = sd + d * 0.5 + color.r / 2222.0;
+   }
+   float cc = float(i) / float(iter);
+
+   vec3 colorfinal;
+   if (cc < 0.5)
+   {
+      cc = cc - cc * sin(sd / 2.0 + color.r / 222.0);
+      colorfinal = vec3(2.0, 1.0, 0.2) * cc;
+   }
+   else
+   {
+      cc = sin(cc * color.r / 222.0); 
+      vec3 a = vec3(1.0, 0.1, 0.2);
+      vec3 b = vec3(0.1, 1.0, 2.2);
+      colorfinal = cc * mix(a, b, cc);
+   }
+   gl_FragColor = vec4(colorfinal, 1.0);
+}
+

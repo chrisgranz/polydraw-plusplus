@@ -1,0 +1,65 @@
+enum {N=16384,NS=3};
+static px[N], py[N], pvx[N], pvy[N], pr[N], pg[N], pb[N], prad[N];
+static clut[NS], slut[NS], frad;
+static tim = 0, hx, hy, hz, rhz;
+
+if (numframes == 0)
+{
+   for(i=0;i<N;i++)
+   {
+      px[i] = xres*rnd; pvx[i] = nrnd*64;
+      py[i] = yres*rnd; pvy[i] = nrnd*64;
+      pr[i] = (int(64*rnd)+0x60)/256;
+      pg[i] = (int(64*rnd)+0x60)/256;
+      pb[i] = (int(64*rnd)+0x60)/256;
+      prad[i] = .02*rnd+.01;
+   }
+   r = 1/cos(PI/NS);
+   for(i=0;i<NS;i++)
+   {
+      clut[i] = cos((i+.5)*PI*2/NS-PI/2)*r;
+      slut[i] = sin((i+.5)*PI*2/NS-PI/2)*r;
+   }
+   hx = xres/2; hy = yres/2; hz = hx; rhz = 1/hz;
+}
+
+otim = tim; tim = klock(); dtim = tim-otim;
+for(i=N-1;i>=0;i--)
+{
+   r = prad[i];
+   x = (px[i]-hx)*rhz;
+   y = (py[i]-hy)*rhz;
+   glColor(pr[i],pg[i],pb[i]);
+   glBegin(GL_POLYGON);
+   for(j=0;j<NS;j++)
+   {
+      glTexCoord(clut[j],slut[j]);
+      glVertex(clut[j]*r+x,slut[j]*r+y,-1);
+   }
+   glEnd();
+   px[i] += pvx[i]*dtim;
+   py[i] += pvy[i]*dtim;
+   if (px[i] <       r) pvx[i] = fabs(pvx[i]);
+   if (py[i] <       r) pvy[i] = fabs(pvy[i]);
+   if (px[i] >= xres-r) pvx[i] =-fabs(pvx[i]);
+   if (py[i] >= yres-r) pvy[i] =-fabs(pvy[i]);
+}
+
+@v: //================================
+varying vec4 p, c, t;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Vertex;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f: //================================
+
+varying vec4 p, c, t;
+void main ()
+{
+   float d = length(t.xy); if (d > 1.0) discard;
+   gl_FragColor = (1.0-d*.25)*c;
+}

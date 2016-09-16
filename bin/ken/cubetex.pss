@@ -1,0 +1,30 @@
+if (numframes == 0) glsettex(0,"kensky.jpg");
+
+ha = mousx/xres*PI*2;    ch = cos(ha); sh = sin(ha);
+va = mousy/yres*PI+PI/2; cv = cos(va); sv = sin(va);
+rx = sh   ; ry =  0; rz =-ch   ;
+dx =-ch*sv; dy = cv; dz =-sh*sv;
+fx = ch*cv; fy = sv; fz = sh*cv;
+gluLookAt(0,0,0,fx,fy,fz,-dx,-dy,-dz);
+
+glBegin(GL_TRIANGLES);
+glVertex(fx-rx*4-dx  ,fy-ry*4-dy  ,fz-rz*4-dz  );
+glVertex(fx+rx*4-dx  ,fy+ry*4-dy  ,fz+rz*4-dz  );
+glVertex(fx     +dx*2,fy     +dy*2,fz     +dz*2);
+glEnd();
+
+@v
+varying vec4 v;
+void main ()
+{
+   gl_Position = ftransform();
+   v = gl_Vertex;
+}
+
+@f
+varying vec4 v;
+uniform samplerCube tex0;
+void main ()
+{
+   gl_FragColor = textureCube(tex0,v.xyz*vec3(-1.0,1.0,1.0));
+}

@@ -1,0 +1,24 @@
+glColor(mousx,yres-mousy,0);
+glquad(1);
+
+@v: //================================
+
+varying vec4 p, v, c, t; varying vec3 n;
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   v = gl_Vertex;
+   n = gl_Normal;
+   t = gl_MultiTexCoord0;
+}
+
+@f: //================================
+
+varying vec4 p, v, c, t; varying vec3 n;
+void main ()
+{
+   float f = mod(float((gl_FragCoord.x-c.x)*(gl_FragCoord.y-c.y)/65536.0),1.0);
+   gl_FragColor = vec4(f,f,f,0.0);
+}

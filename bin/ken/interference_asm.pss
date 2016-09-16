@@ -1,0 +1,34 @@
+   //Host code (EVAL)
+glProgramEnvParam(0,.375,.5,.625,.5);
+glProgramEnvParam(1,1,yres/xres,32,-(klock()%1));
+glquad(1);
+
+@v
+!!ARBvp1.0
+PARAM ModelViewProj[4] = {state.matrix.mvp};
+TEMP temp;
+DP4 temp.x, ModelViewProj[0], vertex.position;
+DP4 temp.y, ModelViewProj[1], vertex.position;
+DP4 temp.z, ModelViewProj[2], vertex.position;
+DP4 temp.w, ModelViewProj[3], vertex.position;
+MOV result.position, temp;
+MOV result.color, vertex.color;
+MOV result.texcoord[0], vertex.texcoord[0];
+END
+
+@f
+!!ARBfp1.0 #arb asm port of interference.kc originally by Dennis Radon
+TEMP a;
+SUB a, fragment.texcoord[0].xyxy, program.env[0];
+MUL a, a, program.env[1].xyxy;
+MUL a, a, a;
+ADD a, a, a.ywyw;
+RSQ a.y, a.x; RSQ a.w, a.z;
+MUL a, a, a.yyww;
+MAD a, a, program.env[1].z, program.env[1].w;
+FRC a, a;
+SUB a.yw, {0,1,0,1}, a.xxzz;
+MIN a, a.xxzz, a.yyww;
+ADD a.y, a.x, a.z;
+ADD result.color, a, {.25,0,.25,0};
+END

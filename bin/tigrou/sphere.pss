@@ -1,0 +1,65 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+   t = klock();
+    
+   gltranslate(0, 0, -35);
+   glrotate(t * 50, 0, 1, 0);
+   inc = PI / 40;
+   r = 20;
+
+   for (w = -PI; w < PI ; w += inc)
+   {
+       for (l = 0; l < PI; l += inc)
+       {
+           glBegin(GL_QUADS);
+              gltexcoord(0, 0);
+              drawpoint(w, l, r);
+              gltexcoord(1, 0);
+              drawpoint(w + inc, l, r);
+              gltexcoord(1, 1);
+              drawpoint(w + inc, l + inc, r);
+              gltexcoord(0, 1);
+              drawpoint(w, l + inc, r);           
+           glEnd();
+
+       }
+   }
+
+}
+
+drawpoint(w, l, r)
+{
+   x = cos(w) * sin(l) * r;
+   y = sin(w) * r;
+   z = cos(w) * cos(l) * r;
+   glVertex(x, y, z)
+}
+
+
+@v: =============================
+
+varying vec4 p, c ,t;
+
+void main()
+{
+
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+
+}
+
+@f: =============================
+
+varying vec4 p, c ,t;
+
+void main()
+{
+   float ss = (t.s - 0.5) * 3.14;
+   float tt = (t.t - 0.5) * 3.14;
+
+   float c = pow(cos(ss) * cos(tt), 0.3);
+   gl_FragColor = vec4((1.0 - c) * 0.7);
+}

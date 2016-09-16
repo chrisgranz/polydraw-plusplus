@@ -1,0 +1,117 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+{
+   t = klock();
+
+   glsetshader(0);
+   glcapture();
+      glnormal(t, 0.2, yres/xres);
+      glquad(1);
+   glcaptureend();
+
+
+   glsetshader(1);
+   glcolor(1, 1, 1);
+   glquad();
+
+   z = 0.9;
+   a = 0.05;
+   for(i= 0 ; i < 40 ; i++)
+   {  
+      glcolor(z, a, 1);     
+      glquad();
+      z -= 0.02;
+      a -= 0.0009;
+   }
+
+
+
+}
+
+@v: =======================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+void main()
+{
+   gl_Position = ftransform();
+   c = gl_Color;
+   p = gl_Position;
+   n = gl_Normal;
+   t = gl_MultiTexCoord0;
+}
+
+@f: =======================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+float sph(vec2 ss)
+{
+   float x, y, z, u, v, PI;
+   float uu, vv, a, cl, time;
+   float q1, q2, l, d;
+
+
+   time = n.x;
+   PI = 3.1415;
+   x = ss.s / n.z;
+   y = ss.t;
+
+   d = length(vec2(x, y));
+   if (d > 1.0)
+      discard;
+
+   z = -sqrt(1.0 - x * x - y * y);
+   y = y * cos(n.y) - z * sin(n.y);
+
+
+   v = acos(y) / PI;
+   u = acos(x / (sin(v * PI))) / (2.0 * PI);
+
+
+   uu = u * 200.0 * 0.8 + time;
+   vv = v * 100.0 * 0.8;
+
+   q1 = float(int(vv / PI));
+   q2 = float(int((uu + PI / 2.0 - 0.10) / PI));
+
+   q1 = cos(q1);
+   l = q1 + sin(q2 + time * 0.5  + cos(q1 * 25.0));
+
+   a = cos(uu) * sin(vv);
+   cl = pow(abs(a), 0.20) * 0.1 / l;
+   cl = pow(1.0 - d, 0.9) * cl;
+
+   return cl;
+}
+
+void main()
+{
+   float c = sph(vec2(p.x, p.y) * 1.8);
+  
+   vec3 color;
+   if (c < 0.0)
+      color = -c * vec3(2.0, 0.5, 0.0);
+   else
+      color =  c * vec3(1.0, 2.0, 2.0);
+
+   gl_FragColor =  vec4(color, 1.0);
+}
+
+
+@f radialblur: =======================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+uniform sampler2D tex0;
+
+void main()
+{
+   float z = c.r;
+   float y = c.r/2.0 - 0.5;
+   gl_FragColor = vec4(texture2D(tex0, vec2(t * z-y)));
+   gl_FragColor.a = c.g;
+}
+

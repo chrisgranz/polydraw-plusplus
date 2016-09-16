@@ -1,0 +1,105 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+
+   t = klock();
+  
+   //glrotate(t/10, 0, 1, 0);
+   glrotate(20, 1, 1, 0);
+
+   dx = cos(t / 2) * 52;
+   dy = sin(t / 2) * 52;
+   glrotate(atan2(dy, dx) / PI * 180 + 90, 0, 1, 0);
+   gltranslate(0 + dx, -20 + sin(t * 5), 0 + dy);
+
+   s = 7;
+   for (j = -s; j < s; j++)
+   {
+      for (i = -s; i < s; i++)
+      {
+         glpushmatrix();
+         glscale(2, 0.5, 2);
+         d = (i * i + j * j);
+
+         gltranslate(i * 3.5, 0, j * 3.5);
+
+         for (k = 0; k < 3; k++)
+         {
+
+            glscale(0.8, 1 + (k * 0.2) + (j * 71 + i * 109 + k * 153) % 3, 0.8);
+            gltranslate(0, 1, 0);
+            cube();
+         }
+
+         glpopmatrix();
+      }
+   }
+
+}
+
+cube()
+{
+   glbegin(GL_QUADS);
+      glTexCoord(1.0, 0.0); glVertex( 1.0, 1.0,-1.0);
+      glTexCoord(1.0, 1.0); glVertex(-1.0, 1.0,-1.0);
+      glTexCoord(0.0, 1.0); glVertex(-1.0, 1.0, 1.0);
+      glTexCoord(0.0, 0.0); glVertex( 1.0, 1.0, 1.0);
+   glend();
+   glbegin(GL_QUADS);
+      glTexCoord(1.0, 0.0); glVertex( 1.0,-1.0, 1.0);
+      glTexCoord(1.0, 1.0); glVertex(-1.0,-1.0, 1.0);
+      glTexCoord(0.0, 1.0); glVertex(-1.0,-1.0,-1.0);
+      glTexCoord(0.0, 0.0); glVertex( 1.0,-1.0,-1.0);
+   glend();
+   glbegin(GL_QUADS);
+      glTexCoord(1.0, 0.0); glVertex( 1.0, 1.0, 1.0);
+      glTexCoord(1.0, 1.0); glVertex(-1.0, 1.0, 1.0);
+      glTexCoord(0.0, 1.0); glVertex(-1.0,-1.0, 1.0);
+      glTexCoord(0.0, 0.0); glVertex( 1.0,-1.0, 1.0);
+   glend();
+   glbegin(GL_QUADS);   
+      glTexCoord(1.0, 0.0);  glVertex(1.0,-1.0,-1.0);
+      glTexCoord(1.0, 1.0); glVertex(-1.0,-1.0,-1.0);
+      glTexCoord(0.0, 1.0); glVertex(-1.0, 1.0,-1.0);
+      glTexCoord(0.0, 0.0); glVertex( 1.0, 1.0,-1.0);
+   glend();
+   glbegin(GL_QUADS);
+      glTexCoord(1.0, 0.0); glVertex(-1.0, 1.0, 1.0);
+      glTexCoord(1.0, 1.0); glVertex(-1.0, 1.0,-1.0);
+      glTexCoord(0.0, 1.0); glVertex(-1.0,-1.0,-1.0);
+      glTexCoord(0.0, 0.0); glVertex(-1.0,-1.0, 1.0);
+   glend();
+   glbegin(GL_QUADS);
+      glTexCoord(1.0, 0.0); glVertex( 1.0, 1.0,-1.0);
+      glTexCoord(1.0, 1.0); glVertex( 1.0, 1.0, 1.0);
+      glTexCoord(0.0, 1.0); glVertex( 1.0,-1.0, 1.0);
+      glTexCoord(0.0, 0.0); glVertex( 1.0,-1.0,-1.0);
+   glend();
+}
+
+@v: =======================
+
+varying vec4 p, c, t;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+}
+
+@f: ===============================
+
+varying vec4 p, c, t;
+
+
+void main()
+{
+   float ss = t.s - 0.5;
+   float tt = t.t - 0.5;
+   float l = cos(tt * 3.0) * cos(ss * 3.0);
+   float w = 100.0 / pow(p.z, 1.5);
+   float cc = abs(sin(ss * 42.0 * 1.5) * cos(tt * 15.0 * 1.5)) * l * l * w;
+   gl_FragColor = vec4(vec3(2.9, 1.9, 1.0) * cc, 1.0);
+}

@@ -1,0 +1,84 @@
+static hx, hy, hz, nhz;
+() //This script was written in MoonEdit by Ken Silverman and Robert Rodgers on 04/24/2011
+{
+   if (numframes == 0) { hx = xres/2; hy = yres/2; hz = hx; nhz = -hz; }
+   t = klock();
+   glalphaenable();
+   n = 256; phi = (sqrt(5)-1)/2;
+   glklockstart();
+   for(s=-1;s<=1;s+=3)
+      for(i=t/4;i<n;i++)
+      {
+         f = sqrt(i)*32;
+         x = cos(i*(PI*2*phi))*f+hx;
+         y = sin(i*(PI*2*phi))*f*s+hy;
+         glColor(1-i/n,i/n,1,1);
+         drawsph(x,y,32,i*(PI*2*phi)*2);
+      }
+   drawsph(mousx,mousy,128,0);
+   printf("\r%.2fms",glklockelapsed()*1e3);
+}
+drawsph (x, y, r, a)
+{
+   glBegin(GL_QUADS); c = -cos(a); s = sin(a);
+   glTexCoord(-c-s,-s+c,0); glVertex(x-r-hx,hy-(y+r),nhz);
+   glTexCoord(+c-s,+s+c,0); glVertex(x+r-hx,hy-(y+r),nhz);
+   glTexCoord(+c+s,+s-c,0); glVertex(x+r-hx,hy-(y-r),nhz);
+   glTexCoord(-c+s,-s-c,0); glVertex(x-r-hx,hy-(y-r),nhz);
+   glEnd();
+}
+@v:vertex_shader //================================
+!!ARBvp1.0
+PARAM ModelViewProj[4] = {state.matrix.mvp};
+TEMP temp;
+DP4 temp.x, ModelViewProj[0], vertex.position;
+DP4 temp.y, ModelViewProj[1], vertex.position;
+DP4 temp.z, ModelViewProj[2], vertex.position;
+DP4 temp.w, ModelViewProj[3], vertex.position;
+MOV result.position, temp;
+MOV result.color, vertex.color;
+MOV result.texcoord[0], vertex.texcoord[0];
+END
+
+@f:fragment_shader //================================
+!!ARBfp1.0
+TEMP a, b, c, d;
+
+  #circle clip (1-(t.u^2 + t.v^2)) >= 0
+DP3 a, fragment.texcoord[0], fragment.texcoord[0];
+SUB a, {1,1,1,1}, a;
+KIL a;
+MUL c, a, fragment.color;
+SUB a.a, {1}, a.a;
+MUL a.a, a.a, a.a;
+MUL a.a, a.a, a.a;
+SUB_SAT c.a, {1}, a.a;
+
+  #eyes
+MOV b, fragment.texcoord[0];
+ABS b.x, b.x;
+SUB b, b, {.25,.15,0,0};
+DP3 b, b, b;
+SUB b, b, {.02,.02,.02,.02};
+   
+  #eye colors (sort of)
+MUL_SAT d, b, {4,4,5}; #freaky alien effect (opaque)
+MUL c.rgb, c, d;
+CMP d, b.x, {1,1,1,1}, {0,0,0,0};
+MUL d, d, {-200,-40,0,0}; #gives eye color orange glow
+MUL b, b, d;
+ADD c, c, b;
+
+  #hot dog mouth
+MOV b, fragment.texcoord[0];
+ABS b.x, b.x;
+SUB b, b, {.35,-.4};
+MAX b.x, b.x, {0};
+DP3 d.x, b, b;
+SUB b.x, d.x, {.02};
+CMP b, b.x, {1,1,1,1}, {0,0,0,0};
+MAD d, d.xxxx, {-20,-20,-20}, {.4,.4,.4};
+MAD c.rgb, b, -d, c;
+
+MOV result.color, c;
+END

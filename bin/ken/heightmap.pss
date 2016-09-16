@@ -1,0 +1,163 @@
+static vert[24] = {0,1,3,2, 5,4,6,7, 4,0,2,6, 1,5,7,3, 4,5,1,0, 2,3,7,6};
+static vx[8] = {0,1,0,1,0,1,0,1};
+static vy[8] = {0,0,1,1,0,0,1,1};
+static vz[8] = {0,0,0,0,1,1,1,1};
+
+()
+{
+	static ipos[3] = {-.5,-.5,-1.0}, irig[3] = {1,0,0}, idow[3] = {0,-1,0}, ifor[3] = {0,0,-1};
+	static tim, omousx, omousy, hei = 1/8, manual = 0;
+
+	if (numframes == 0)
+	{
+		if (0) glsettex(0,"../voxlap/vxl/tomland.png"); //<- heightmap is stored in alpha channel
+		else
+		{
+			enum {SIZ=256}; static buf[SIZ][SIZ], buf2[SIZ][SIZ];
+			for(y=0;y<SIZ;y++)
+				for(x=0;x<SIZ;x++)
+				{
+					for(v=0,i=1-1;i>=0;i--)
+						v += min(fabs(noise(x*(i+8)/SIZ,y*(i+8)/SIZ)),1/2);
+					buf[y][x] = min(max(255 - v*SIZ*2,0),255);
+				}
+			for(y=0;y<SIZ;y++)
+				for(x=0;x<SIZ;x++)
+				{
+					nx = buf[y][x+1] - buf[y][x-1];
+					ny = buf[y+1][x] - buf[y-1][x];
+					i = (nx*.01 + ny*.01);
+					j = ((SIZ-buf[y][x])/SIZ) % (fabs(noise(x/8,y/8))+.1);
+					r = i*40 + j*80 + 64;
+					g = i*72 + j*80 + 64;
+					b = i*72 + j*40 + 72;
+					buf2[y][x] = rgba(r,g,b,255-buf[y][x]);
+				}
+			glsettex(0,buf2,SIZ,SIZ,KGL_BGRA32);
+		}
+
+		glcullface(GL_BACK);
+		omousx = mousx; omousy = mousy;
+	}
+
+	otim = tim; tim = klock(); dtim = tim-otim;
+
+	if (bstatus%2)
+	{
+		if (mousx != omousx)
+		{
+			manual = 1;
+			c = cos((mousx-omousx)*-.01);
+			s = sin((mousx-omousx)*-.01);
+			ox = irig[0]; oz = irig[2]; irig[0] = ox*c - oz*s; irig[2] = oz*c + ox*s;
+			ox = idow[0]; oz = idow[2]; idow[0] = ox*c - oz*s; idow[2] = oz*c + ox*s;
+			ox = ifor[0]; oz = ifor[2]; ifor[0] = ox*c - oz*s; ifor[2] = oz*c + ox*s;
+			ox = ipos[0]; oz = ipos[2]; ipos[0] = ox*c - oz*s; ipos[2] = oz*c + ox*s;
+		}
+		if (mousy != omousy)
+		{
+			manual = 1;
+			c = cos((mousy-omousy)*.01);
+			s = sin((mousy-omousy)*.01);
+			oy = irig[1]; oz = irig[2]; irig[1] = oy*c - oz*s; irig[2] = oz*c + oy*s;
+			oy = idow[1]; oz = idow[2]; idow[1] = oy*c - oz*s; idow[2] = oz*c + oy*s;
+			oy = ifor[1]; oz = ifor[2]; ifor[1] = oy*c - oz*s; ifor[2] = oz*c + oy*s;
+			oy = ipos[1]; oz = ipos[2]; ipos[1] = oy*c - oz*s; ipos[2] = oz*c + oy*s;
+		}
+	}
+	if (manual)
+	{
+		f = keystatus[0xcb]-keystatus[0xcd]; if (f) { ipos[0] += f*dtim; }
+		f = keystatus[0x52]-keystatus[0x9d]; if (f) { ipos[1] += f*dtim; }
+		f = keystatus[0xc8]-keystatus[0xd0]; if (f) { ipos[2] += f*dtim; }
+		f = keystatus[0xd1]-keystatus[0xc9]; if (f) { hei = max(hei+f*dtim*-.25,.0001); }
+	}
+	else
+	{
+		c = cos(tim/2); s = sin(tim/2);
+		irig[0] = c; idow[0] = 0; ifor[0] = s;
+		irig[1] = 0; idow[1] =-1; ifor[1] = 0;
+		irig[2] = s; idow[2] = 0; ifor[2] =-c;
+		ipos[0] = irig[0]*-.5 - idow[0]*-.5 + ifor[0]*-.5;
+		ipos[1] = irig[1]*-.5 - idow[1]*-.5 + ifor[1]*-.5;
+		ipos[2] = irig[2]*-.5 - idow[2]*-.5 + ifor[2]*-.5 - 1.4;
+		hei = .10001-cos(max(tim*4-4,0))*.1;
+	}
+	if (keystatus[0x1]) manual = 0;
+
+	drawtopo(ipos[0],ipos[1],ipos[2],irig,idow,ifor,hei);
+	//drawtopo(ipos[0]+irig[0]/2,ipos[1]+irig[1]/2,ipos[2]+irig[2]/2,irig,idow,ifor,hei);
+
+	omousx = mousx; omousy = mousy;
+}
+
+drawtopo (px,py,pz, irig[3], idow[3], ifor[3], hei)
+{
+	py++;
+	rdet = 1/(irig[0]*(idow[1]*ifor[2] - idow[2]*ifor[1]) +
+				 irig[1]*(idow[2]*ifor[0] - idow[0]*ifor[2]) +
+				 irig[2]*(idow[0]*ifor[1] - idow[1]*ifor[0]));
+	x =-(px*(idow[1]*ifor[2] - idow[2]*ifor[1]) +
+		  py*(idow[2]*ifor[0] - idow[0]*ifor[2]) +
+		  pz*(idow[0]*ifor[1] - idow[1]*ifor[0]))*rdet;
+	y =-(irig[0]*(py*ifor[2] - pz*ifor[1]) +
+		  irig[1]*(pz*ifor[0] - px*ifor[2]) +
+		  irig[2]*(px*ifor[1] - py*ifor[0]))*rdet;
+	z =-(irig[0]*(idow[1]*pz - idow[2]*py) +
+		  irig[1]*(idow[2]*px - idow[0]*pz) +
+		  irig[2]*(idow[0]*py - idow[1]*px))*rdet;
+	
+	glBegin(GL_QUADS);
+	if (hei >= 0) glNormal(x,z,(1-y)/hei);
+				else glNormal(x,z,(y-1)/hei);
+	for(i=0;i<24;i++)
+	{
+		j = vert[i]; x = vx[j]; z = vz[j];
+		if (hei >= 0) { glTexCoord(x,z,1-vy[j]); y = ((vy[j]-1)*hei+1); }
+					else { glTexCoord(x,z,  vy[j]); y = ((1-vy[j])*hei+1); }
+		glVertex(irig[0]*x + idow[0]*y + ifor[0]*z + px,
+					irig[1]*x + idow[1]*y + ifor[1]*z + py,
+					irig[2]*x + idow[2]*y + ifor[2]*z + pz);
+	}
+	glEnd();
+}
+
+@v: ================================
+
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+	gl_Position = ftransform();
+	p = gl_Position;
+	v = gl_Vertex;
+	n = gl_Normal;
+	c = gl_Color;
+	t = gl_MultiTexCoord0;
+}
+
+@f: ================================
+
+varying vec4 p, v, c, t; varying vec3 n;
+uniform sampler2D tex0;
+void main ()
+{
+	vec4 col;
+	vec3 pos = t.xyz, inc = normalize(t.xyz-n.xyz)/256.0;
+	//gl_FragColor = vec4(t.x,t.y,t.z,0.0); return;
+	//gl_FragColor = texture2D(tex0,pos.xy); return;
+	int i;
+	for(i=0;i<255;i++)
+	{
+		col = texture2D(tex0,pos.xy); if (pos.z < col.a) break;
+		pos += inc;
+		if (pos.x < 0.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+		if (pos.x > 1.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+		if (pos.y < 0.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+		if (pos.y > 1.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+	 //if (pos.z < 0.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+		if (pos.z > 1.0) discard; //{ col = vec4(1.0,1.0,0.0,0.0); break; }
+	}
+	//gl_FragDepth = float(i)*.001;
+	gl_FragColor = col;
+}

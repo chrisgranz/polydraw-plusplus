@@ -1,0 +1,134 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{
+   t = klock();
+
+   gltranslate(0, 0, -320);   
+   glrotate(t * 10, 1, 0, 0);
+   glpushmatrix();
+
+   n = 200;
+
+   for (i = 0; i < n; i++)
+   {
+
+      x0 = sin(i / n * 5 * PI + t) * 100;
+      y0 = cos(i / n * 4 * PI + t) * 100;
+      z0 = cos(i / n * 3 * PI + t) * 100;
+
+      x1 = sin((i + 1) / n * 5 * PI + t) * 100;
+      y1 = cos((i + 1) / n * 4 * PI + t) * 100;
+      z1 = cos((i + 1) / n * 3 * PI + t) * 100;
+
+      x2 = sin((i + 2) / n * 5 * PI + t) * 100;
+      y2 = cos((i + 2) / n * 4 * PI + t) * 100;
+      z2 = cos((i + 2) / n * 3 * PI + t) * 100;
+
+
+      vi = PI * 2 / 10;
+      k = 0;
+
+      glBegin(GL_TRIANGLE_STRIP);
+      for (v = 0; v <= PI * 2; v += vi)
+      {
+         r = 10 + (k % 2 == 0) * 10;
+
+         ii = i / 20 + t;
+         x = cos(v + ii) * r;
+         y = sin(v + ii) * r;
+         z = z0;
+
+         glcolor(t, v, i);
+         align(x, y, z, x1, y1, z1, x0, y0, z0);
+         glvertex(x1 + x, y1 + y, z1 + z);
+
+         nii = (i + 1) / 20 + t;
+         x = cos(v + nii) * r;
+         y = sin(v + nii) * r;
+         z = z1;
+         align(x, y, z, x2, y2, z2, x1, y1, z1);
+         glvertex(x2 + x, y2+ y, z2 + z);
+
+         k++;
+      }
+      glEnd();
+      
+   }
+
+   glpopmatrix();
+
+}
+
+
+align(&x, &y, &z, px, py, pz, ox, oy, oz)
+{
+
+   zx = px - ox;
+   zy = py - oy;
+   zz = pz - oz;
+
+   //normalize
+   d = sqrt(zx * zx + zy * zy + zz * zz);
+   zx = zx / d;
+   zy = zy / d;
+   zz = zz / d;
+
+   yx = zy;
+   yy = -zz;
+   yz = zx;
+
+   //normalize
+   d = sqrt(yx * yx + yy * yy + yz * yz);
+   yx = yx / d;
+   yy = yy / d;
+   yz = yz / d;
+
+   //cross product
+   xx = yy * zz - yz * zy;
+   xy = yz * zx - yx * zz;
+   xz = yx * zy - yy * zx;
+
+   //normalize
+   d = sqrt(xx * xx + xy * xy + xz * xz);
+   xx = xx / d;
+   xy = xy / d;
+   xz = xz / d;
+
+   //cross product
+   yx = xy * zz - xz * zy;
+   yy = xz * zx - xx * zz;
+   yz = xx * zy - xy * zx;
+
+
+   nx = x * xx + y * yx + z * zx;
+   ny = x * xy + y * yy + z * zy;
+   nz = x * xz + y * yz + z * zz;
+
+   x = nx;
+   y = ny;
+   z = nz;
+}
+
+@v: ===========================================
+
+varying vec4 p, c ,v;
+varying vec3 n;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   v = gl_Vertex;
+   n = gl_Normal;
+}
+
+@f: ===========================================
+
+varying vec4 p, c ,v;
+varying vec3 n;
+
+void main()
+{
+   gl_FragColor = vec4(1.0 - abs(pow(p.z, 3.0)) / 200000000.0) * abs(sin(c.z));
+}

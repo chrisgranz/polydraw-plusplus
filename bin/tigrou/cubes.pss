@@ -1,0 +1,99 @@
+//tigrou 11.05.2011 (tigrou.ind at gmail.com)
+gluniform1f(glgetuniformloc("yxaspect"),yres/xres);
+glcolor(klock() / 1.3, 0, 0);
+glquad();
+
+@vertex_shader: ================================
+varying vec4 p, c;
+
+void main ()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;   
+}
+
+@fragment_shader: ==============================
+varying vec4 p, c;
+
+vec3 rx(vec3 p, float a)
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.y = c * q.y - s * q.z;
+   p.z = s * q.y + c * q.z;
+   return p;
+}
+
+
+vec3 ry(vec3 p, float a) 
+{
+   float c, s;
+   vec3 q = p;
+
+   c = cos(a); 
+   s = sin(a);
+   p.x = c * q.x - s * q.z;
+   p.z = s * q.x + c * q.z;
+   return p;
+}
+
+
+float cube(vec3 p,vec3 size)
+{
+   return max(max(abs(p.x) - size.x, abs(p.y) - size.y), abs(p.z) - size.z);
+}
+
+
+float f(vec3 p)
+{
+   p.z -= c.r;
+   
+   p = mod(p, 1.0) - 0.5;
+   float c  = cube(p, vec3(0.12));
+   float p0 = cube(vec3(p.x, p.y, 0.0), vec3(0.06));
+   float p1 = cube(vec3(p.x, 0.0, p.z), vec3(0.06));
+   float p2 = cube(vec3(0.0, p.y, p.z), vec3(0.06));
+   return min(p2, min(p1, min(p0, c)));
+}
+
+uniform float yxaspect;
+void main(void)
+{
+   vec3 color = vec3(0.0);
+
+   vec3 ro = vec3(0.0, 0.0 ,1.0);   
+   vec3 rd = vec3(p.x, p.y*yxaspect, -1.0);
+      
+   rd = rx(rd, c.r / 10.0);
+   rd = ry(rd, c.r / 4.0);  
+
+   float t = 0.0;
+   
+   for(int steps = 0; steps < 700; steps++)
+   {
+
+      float d = f(ro  + t * rd);
+      if(d < 0.001) 
+      {
+
+         float e = 0.02;
+         vec3 h = ro + t * rd;
+         vec3 n = vec3(f(h + vec3(e,   0.0, 0.0)) - f(h - vec3(e,   0.0, 0.0)), 
+                       f(h + vec3(0.0, e,   0.0)) - f(h - vec3(0.0, e,   0.0)), 
+                       f(h + vec3(0.0, 0.0, e))   - f(h - vec3(0.0, 0.0, e)));
+         n = normalize(n);            
+                          
+         float c = dot(n, vec3(1.0))* sin(t)/t;
+         color = mix(vec3(0.0, 0.21, 0.02), vec3(1.0, 0.6, 0.0), c);
+         break;
+      }
+      t += d * 0.7;
+   }
+   gl_FragColor = vec4(color, 1.0);
+   
+}
+

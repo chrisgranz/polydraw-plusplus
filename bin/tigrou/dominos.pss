@@ -1,0 +1,156 @@
+//tigrou 02.01.2010 (tigrou.ind at gmail.com)
+()
+{ 
+   t = klock();
+
+   x = t * 10 / 3;
+   y = cos(t / 1.5) * 20;
+   z = 0;
+
+   rx = sin(t) * 10;
+   ry = sin(t / 9) * 10;
+
+   setfov(62.79);
+   glulookat(x + rx, y + ry, z + 10, x, y, z, 0, 0, 1);
+
+   glsetshader(0);
+   drawdominos(t * 1000);
+}
+drawdominos(t)
+{
+   static oldx, oldy;
+   n = int(t / 75);
+
+   for (i = max(n - 50, 0); i < n + 50; i++)
+   {
+      ii = i / 20;
+      glpushmatrix();
+         x = ii * 5;
+         y = cos(ii) * 20;
+   
+   
+         gltranslate(x, y, 0);
+         dx = oldx - x;
+         dy = oldy - y;
+   
+         a = atan2(dy, dx) / (PI * 2);
+         glrotate(a * 360, 0, 0, 1);
+   
+         r = max(min((t * 2 - i * 150) / 10, 70), 0);
+   
+         oldx = x;
+         oldy = y;
+   
+         glpushmatrix();
+            glnormal(t * 1000, i * 20, 1.0);
+            drawdomino(r, i, a);
+         glpopmatrix();         
+
+         glscale(1, 1, -1);
+         gltranslate(0, 0, 0.1);
+         glnormal(t * 1000, i * 20, 0.4);
+         drawdomino(r, i, a);
+
+      glpopmatrix();
+   }
+}
+
+drawdomino(r, i, a)
+{
+   glrotate(-r, 0, 1, 0);
+   gltranslate(0, 0, 1);
+   glscale(0.15, 0.5, 1);
+
+   n = 1 + abs(int(sin(i / 180) * 4));
+   for (k = 0; k < n; k++)
+   {
+      glpushmatrix();
+         e = 2 + (sin(i / 10) * 4);  
+         gltranslate(sin(a) * e * (k - (n - 1) / 2), cos(a) * e * (k - (n - 1) / 2), 0);
+         cube();
+      glpopmatrix();
+   }
+}
+
+
+cube()
+{
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex( 1.0, 1.0, -1.0);
+      glTexCoord(1.0, 1.0);  glVertex(-1.0, 1.0, -1.0);
+      glTexCoord(0.0, 1.0);  glVertex(-1.0, 1.0,  1.0);
+      glTexCoord(0.0, 0.0);  glVertex( 1.0, 1.0,  1.0);
+   glEnd();
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex( 1.0, -1.0,  1.0);
+      glTexCoord(1.0, 1.0);  glVertex(-1.0, -1.0,  1.0);
+      glTexCoord(0.0, 1.0);  glVertex(-1.0, -1.0, -1.0);
+      glTexCoord(0.0, 0.0);  glVertex( 1.0, -1.0, -1.0);
+   glEnd();
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex( 1.0,  1.0, 1.0);
+      glTexCoord(1.0, 1.0);  glVertex(-1.0,  1.0, 1.0);
+      glTexCoord(0.0, 1.0);  glVertex(-1.0, -1.0, 1.0);
+      glTexCoord(0.0, 0.0);  glVertex( 1.0, -1.0, 1.0);
+   glEnd();
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex( 1.0, -1.0, -1.0);
+      glTexCoord(1.0, 1.0);  glVertex(-1.0, -1.0, -1.0);
+      glTexCoord(0.0, 1.0);  glVertex(-1.0,  1.0, -1.0);
+      glTexCoord(0.0, 0.0);  glVertex( 1.0,  1.0, -1.0);
+   glEnd();
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex(-1.0,  1.0,  1.0);
+      glTexCoord(1.0, 1.0);  glVertex(-1.0,  1.0, -1.0);
+      glTexCoord(0.0, 1.0);  glVertex(-1.0, -1.0, -1.0);
+      glTexCoord(0.0, 0.0);  glVertex(-1.0, -1.0,  1.0);
+   glEnd();
+
+   glBegin(GL_QUADS);
+      glTexCoord(1.0, 0.0);  glVertex(1.0,  1.0, -1.0);
+      glTexCoord(1.0, 1.0);  glVertex(1.0,  1.0,  1.0);
+      glTexCoord(0.0, 1.0);  glVertex(1.0, -1.0,  1.0);
+      glTexCoord(0.0, 0.0);  glVertex(1.0, -1.0, -1.0);
+   glEnd();
+
+}
+
+@v: //=====================================
+
+varying vec4 p, c ,t;
+varying vec3 n;
+
+void main()
+{
+   gl_Position = ftransform();
+   p = gl_Position;
+   c = gl_Color;
+   t = gl_MultiTexCoord0;
+   n = gl_Normal;
+}
+
+@f: //=====================================
+
+varying vec4 p, c, t;
+varying vec3 n;
+
+void main()
+{
+   float ss = t.s - 0.5;
+   float tt = t.t - 0.5;
+
+   float l = min((2000.0 / pow(p.z, 2.9)), 1.9);
+   float w = (pow(cos(tt * 3.0) * cos(ss * 3.0), 0.2)) * 0.5;
+
+   vec4 va = vec4( abs(sin(n.y * 0.001)), 
+                   0.5, 
+                   abs(cos(n.y * 0.0005)), 
+                   1.0);
+
+   gl_FragColor = va * 0.45 * l * w * 3.0 * n.b;
+}

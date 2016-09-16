@@ -1,0 +1,58 @@
+	//Instructions:
+	//* Press 1-6 to select texture filter mode
+	//* For mipmap modes (3-6), move mouse up/down to manipulate global mipmap level
+	//* If mouse is near top, default mipmap behavior is used
+static ometh = -1, meth;
+gluperspective(75,xres/yres,0.1,1000);
+if (numframes == 0) meth = KGL_MIPMAP3;
+if (keystatus[0x2]) meth = KGL_NEAREST; //1
+if (keystatus[0x3]) meth = KGL_LINEAR;  //2
+if (keystatus[0x4]) meth = KGL_MIPMAP0; //3
+if (keystatus[0x5]) meth = KGL_MIPMAP1; //4
+if (keystatus[0x6]) meth = KGL_MIPMAP2; //5
+if (keystatus[0x7]) meth = KGL_MIPMAP3; //6
+if (meth != ometh)
+{
+	ometh = meth;
+	static buf[256][256]; srand(0);
+	for(y=0;y<256;y++)
+		for(x=0;x<256;x++)
+		{
+			if (0) buf[y][x] = ((int(x/1)+int(y/1))%2)*0xffffff; //checkerboard
+			  else buf[y][x] = 2^24*rnd; //random
+		}
+
+		//Test derivative calculation for mip-maps
+	for(y=0;y<256;y++)
+		for(x=0;x<256;x++)
+			buf[y][x] = buf[y%16][x%16];
+  
+	glsettex(0,buf,256,256,meth);
+	//glsettex(0,"earth.jpg",meth);
+}
+
+glsetshader("vert","frag");
+gluniform1f(glgetuniformloc("dep"),2^(mousy/yres*3)-1);
+glBegin(GL_QUADS);
+glTexCoord(0,0); glVertex(-500,+700,-1000);
+glTexCoord(1,0); glVertex(+500,+700,-1000);
+glTexCoord(1,1); glVertex(+500,- 50,    0);
+glTexCoord(0,1); glVertex(-500,- 50,    0);
+glEnd();
+
+@v:vert //-----------------------------------------
+varying vec4 t;
+void main () { gl_Position = ftransform(); t = gl_MultiTexCoord0; }
+@f:frag //-----------------------------------------
+varying vec4 t;
+uniform sampler2D tex0;
+uniform float dep;
+void main ()
+{
+	if (dep < 0.0) gl_FragColor = texture2D(tex0,t.xy);
+#ifdef GL_ARB_shader_texture_lod
+				 else gl_FragColor = texture2DLod(tex0,t.xy,dep);
+#else
+				 else gl_FragColor = texture2D(tex0,t.xy);
+#endif
+}

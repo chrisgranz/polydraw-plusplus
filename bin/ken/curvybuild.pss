@@ -1,0 +1,308 @@
+	//CurvyBuild port to PolyDraw by Ken Silverman
+enum {WALLMAX=256, SECTMAX=16};
+static wall[WALLMAX][5] = //wall_t: x,y,n,ns,nw
+{
+	-2.2,-3.0,1,  2,12,
+	-1.0,-5.0,2, -1,-1,
+	+1.0,-5.0,3, -1,-1,
+	+2.2,-3.0,4, -1,-1,
+	+1.0,-1.0,5,  1, 7,
+	-1.0,-1.0,0, -1,-1,
+	
+	-2.2,+1.0,1, -1,-1,
+	-1.0,-1.0,2,  0, 4,
+	+1.0,-1.0,3, -1,-1,
+	+2.2,+1.0,4, -1,-1,
+	+1.0,+3.0,5, -1,-1,
+	-1.0,+3.0,0, -1,-1,
+	
+	-1.0,-5.0,1,  0, 0,
+	-2.2,-3.0,2, -1,-1,
+	-8.0,+3.0,3, -1,-1,
+	-8.0,-5.0,0, -1,-1,
+};
+static sect[SECTMAX][14] = //sect_t: wall0, walln, con[2][6];
+{
+	0,6, +.00,-.00,+.15,+.00,+.40,-2.0,
+		  -.25,+.00,-.25,+.00,-1.2,+1.4,
+	6,6, +.35,-.00,+.35,+.00,-.00,-2.0,
+		  -.35,+.00,+.00,+.00,+.00,+2.0,
+  12,4, -.10,-.00,-.00,-.85,-.00,-2.0,
+		  +.10,+.00,+.05,+.85,+.12,+2.0,
+};
+static numsects = 3;
+static hx, hy, hz, posx = 0, posy = 0, posz = -3, tim;
+
+()
+{
+	static px[16], py[16];
+
+	if (numframes == 0)
+	{
+		//glsettex(0,"..\\hei\\brick_green.png");
+
+		enum {SIZ=128}; static buf[SIZ][SIZ];
+
+		for(y=0;y<SIZ;y++) for(x=0;x<SIZ;x++)
+		{
+			for(v=0,i=1/256;i<1;i*=1.3) //Generate rug pattern
+				v += exp(noise(x*i,     y *i)^2*-24)*16 
+					+ exp(noise(x*i,(SIZ-y)*i)^2*-24)*16;
+			buf[y][x] = rgb(255-v*.4,255-v*.4,255-v*.38);
+		}
+		glsettex(0,buf,SIZ,SIZ,KGL_BGRA32);
+
+		for(y=0;y<SIZ;y++) for(x=0;x<SIZ;x++)
+			buf[y][x] = int(min(x%32,15)*1)*0x040302 + //Generate wood texture
+							int(min((int(x/32)*47+y)%128,15)*1)*0x050302 +
+							int(noise(noise(x/16,y/32)*4,noise(x/10,y/32)*4)*20)*0x020201+0x303030;
+		glsettex(1,buf,SIZ,SIZ,KGL_BGRA32);
+
+		//static hbstatus; hbstatus = glgetuniformloc("bstatus");
+		static sumtim = 0, sumnframe = 0, sumn = 32;
+		hx = xres/2; hy = yres/2; hz = hx;
+		glcullface(GL_FRONT);
+	}
+
+	otim = tim; tim = klock(); dtim = tim-otim;
+	glColor(1,1,1); //gluniform1i(hbstatus,bstatus);
+
+	ha =-mousx/xres*PI*2-PI/2;
+	va = mousy/yres*PI  -PI/2;
+	f = dtim*4;
+	a = (keystatus[0xcd]-keystatus[0xcb])*f;
+	b = (keystatus[0x9d]-keystatus[0x52])*f;
+	c = (keystatus[0xc8]-keystatus[0xd0])*f;
+	fx = cos(ha)*cos(va); rx = sin(ha);
+	fy =         sin(va); ry = 0;
+	fz = sin(ha)*cos(va); rz =-cos(ha);
+	dx = -(fy*rz - fz*ry);
+	dy = -(fz*rx - fx*rz);
+	dz = -(fx*ry - fy*rx);
+	glulookat(posx,posy,posz,posx+fx,posy+fy,posz+fz,dx,dy,dz);
+
+	vx = a*rx + b*dx + c*fx;
+	vy = a*ry + b*dy + c*fy;
+	vz = a*rz + b*dz + c*fz;
+	collide(&posx,&posz,&posy,vx,vz,vy);
+
+	//glklockstart();   
+	for(s=0;s<numsects;s++)
+	{
+		w0 = sect[s][0]; wn = sect[s][1];
+		minx = 1e32; miny = 1e32; maxx = -1e32; maxy = -1e32;
+		glbindtexture(0);
+		for(w=0;w<wn;w++)
+		{
+			x0 = wall[w0+w ][0]; y0 = wall[w0+w ][1]; w2 = wall[w0+w][2];
+			x1 = wall[w0+w2][0]; y1 = wall[w0+w2][1]; ns = wall[w0+w][3];
+			minx = min(minx,x0); maxx = max(maxx,x0);
+			miny = min(miny,y0); maxy = max(maxy,y0);
+			glBegin(GL_QUADS);
+			for(dt=1/16,it=0,t=0;t<1;t+=dt,it++)
+			{
+				x2 = (x1-x0)*t + x0; x3 = (x1-x0)*(t+dt) + x0;
+				y2 = (y1-y0)*t + y0; y3 = (y1-y0)*(t+dt) + y0;
+				if (bstatus) { i = (it%2)*.2+.9; glColor(i,i,i); }
+				glnormal(y1-y0,0,x0-x1);
+				if (ns < 0)
+				{
+					z = getslopez( s,0,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+					z = getslopez( s,0,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez( s,1,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez( s,1,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+				}
+				else
+				{
+					z = getslopez( s,0,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+					z = getslopez( s,0,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez(ns,0,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez(ns,0,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+
+					z = getslopez(ns,1,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+					z = getslopez(ns,1,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez( s,1,x3,y3); gltexcoord(t+dt,z); glvertex(x3,z,y3);
+					z = getslopez( s,1,x2,y2); gltexcoord(t   ,z); glvertex(x2,z,y2);
+				}
+			}
+			glEnd();
+		}
+		glbindtexture(1);
+		for(dv=1/16,iv=0,v=0;v<1;v+=dv,iv++)
+			for(du=1/16,iu=0,u=0;u<1;u+=du,iu++)
+			{
+				px[0] = (maxx-minx)*(u   ) + minx; py[0] = (maxy-miny)*(v   ) + miny;
+				px[1] = (maxx-minx)*(u+du) + minx; py[1] = (maxy-miny)*(v   ) + miny;
+				px[2] = (maxx-minx)*(u+du) + minx; py[2] = (maxy-miny)*(v+dv) + miny;
+				px[3] = (maxx-minx)*(u   ) + minx; py[3] = (maxy-miny)*(v+dv) + miny;
+				n = 4;
+				
+				for(w=0;w<wn;w++)
+				{
+					x0 = wall[w0+w ][0]; y0 = wall[w0+w ][1]; w2 = wall[w0+w][2];
+					x1 = wall[w0+w2][0]; y1 = wall[w0+w2][1];
+					n = clippoly(px,py,n,x0,y0,y0-y1,x1-x0);
+				}
+				
+				if (bstatus) { i = ((iu+iv)%2)*.2+.9; glColor(i,i,i); }
+				glBegin(GL_TRIANGLE_FAN);
+				for(i=n-1;i>=0;i--)
+				{
+					gltexcoord(px[i],py[i]); donorm(s,0,px[i],py[i]);
+					glvertex(px[i],getslopez(s,0,px[i],py[i]),py[i]);
+				}
+				glEnd();
+				glBegin(GL_TRIANGLE_FAN);
+				for(i=0;i<n;i++)
+				{
+					gltexcoord(px[i],py[i]); donorm(s,1,px[i],py[i]);
+					glvertex(px[i],getslopez(s,1,px[i],py[i]),py[i]);
+				}
+				glEnd();
+			}
+	}
+
+	//sumtim += glklockelapsed();
+	//if (numframes >= sumnframe)
+	//{
+	//   printf("\r%5.3f msec ",(sumtim/sumn)*1e3);
+	//   sumtim = 0; sumnframe += sumn;
+	//}
+	//printf("\rgetsector(%g,%g,%g)=%g]",px,py,pz,getsector(px,py,pz));
+
+	Sleep(15);
+}
+
+clippoly (px[16], py[16], n, x0, y0, nx, ny)
+{
+	static px2[16], py2[16]; n2 = 0;
+	for(i=n-1,j=0;j<n;i=j,j++)
+	{
+		t0 = (px[i]-x0)*nx + (py[i]-y0)*ny;
+		t1 = (px[j]-x0)*nx + (py[j]-y0)*ny;
+		if (t0 >= 0) { px2[n2] = px[i]; py2[n2] = py[i]; n2++; }
+		if ((t0 >= 0) == (t1 >= 0)) continue;
+		f = t0/(t0-t1);
+		px2[n2] = (px[j]-px[i])*f + px[i];
+		py2[n2] = (py[j]-py[i])*f + py[i]; n2++;
+	}
+	for(i=0;i<n2;i++) { px[i] = px2[i]; py[i] = py2[i]; }
+	return(n2);
+}
+
+getslopez (s, isflor, x, y)
+{
+	i = (isflor!=0)*6+2;
+	z  = sect[s][i+0]*x*x;
+	z += sect[s][i+1]*x*y;
+	z += sect[s][i+2]*y*y;
+	z += sect[s][i+3]*x;
+	z += sect[s][i+4]*y;
+	z += sect[s][i+5];
+	return(z);
+}
+
+donorm (s, isflor, x, y)
+{
+	i = (isflor!=0)*6+2;
+	gx = sect[s][i+0]*x*2 + sect[s][i+1]*y + sect[s][i+3];
+	gy = sect[s][i+2]*y*2 + sect[s][i+1]*x + sect[s][i+4];
+	if (isflor) glnormal(-gx,-1,-gy);
+			 else glnormal(+gx,+1,+gy);
+}
+
+insidesect (x, y, s)
+{
+	w0 = sect[s][0]; wn = sect[s][1]; cnt = 0;
+	for(i=w0;i<w0+wn;i++)
+	{
+		j = w0+wall[i][2];
+		y0 = wall[i][1]-y; y1 = wall[j][1]-y; if ((y0 < 0) == (y1 < 0)) continue;
+		x0 = wall[i][0]-x; x1 = wall[j][0]-x;
+		if ((x0 < 0) == (x1 < 0)) { if (x0 < 0) cnt = 1-cnt; continue; }
+		if ((x1*y0 < x0*y1) != (y0 < 0)) cnt = 1-cnt;
+	}
+	return(cnt);
+}
+
+getsector (x, y, z)
+{
+	for(s=numsects-1;s>=0;s--)
+		if (insidesect(x,y,s))
+		{
+			z0 = getslopez(s,0,x,y);
+			z1 = getslopez(s,1,x,y);
+			if ((z >= z0) && (z <= z1)) return(s);
+		}
+	return(-1);
+}
+
+getperpvec (n[3], a[3], b[3])
+{
+	if (fabs(n[0]) < fabs(n[1]))
+		  { f = 1/sqrt(n[1]^2+n[2]^2); a[0] =      0; a[1] = n[2]*f; a[2] =-n[1]*f; }
+	else { f = 1/sqrt(n[0]^2+n[2]^2); a[0] =-n[2]*f; a[1] =      0; a[2] = n[0]*f; }
+	b[0] = n[1]*a[2] - n[2]*a[1];
+	b[1] = n[2]*a[0] - n[0]*a[2];
+	b[2] = n[0]*a[1] - n[1]*a[0];
+	f = 1/sqrt(b[0]^2 + b[1]^2 + b[2]^2); b[0] *= f; b[1] *= f; b[2] *= f;
+}
+
+	//Algo first implemented on 06/04/2010 :)
+	//Simple & short collision; supports sliding for general case :)
+collide (&px,&py,&pz,vx,vy,vz)
+{
+	static dir[8][3] = {-1,-1,-1,1,-1,-1,-1,1,-1,1,1,-1,-1,-1,1,1,-1,1,-1,1,1,1,1,1};
+	static v[3], a[3], b[3];
+	v[0] = vx/2; v[1] = vy/2; v[2] = vz/2; hd = sqrt(v[0]^2 + v[1]^2 + v[2]^2);
+	getperpvec(v,a,b);
+	a[0] *= hd; a[1] *= hd; a[2] *= hd;
+	b[0] *= hd; b[1] *= hd; b[2] *= hd;
+	enum {N=1024};
+	for(i=0;i<N;i++)
+	{
+			//Generate test unit vector
+		z = 1-i*(2/N); f = i*((sqrt(5)-1)/2*PI*2); g = sqrt(1-z*z); x = cos(f)*g; y = sin(f)*g;
+
+		npx = a[0]*x + b[0]*y + v[0]*z + v[0]+px;
+		npy = a[1]*x + b[1]*y + v[1]*z + v[1]+py;
+		npz = a[2]*x + b[2]*y + v[2]*z + v[2]+pz;
+		for(j=7;j>=0;j--)
+			if (getsector(npx+dir[j][0]/4,npy+dir[j][1]/4,npz+dir[j][2]/4) < 0) break;
+		if (j < 0) { px = npx; py = npy; pz = npz; return; }
+	}
+}
+
+@v:Vertex shader //=========
+varying vec4 p, v, c, t;
+varying vec3 n;
+void main ()
+{
+	gl_Position = ftransform();
+	p = gl_Position;
+	v = gl_Vertex;
+	n = gl_Normal;
+	c = gl_Color;
+	t = gl_MultiTexCoord0;
+}
+
+@f:Fragment shader //=========
+varying vec4 p, v, c, t;
+varying vec3 n;
+uniform sampler2D tex0;
+void main ()
+{
+	vec3 lig = normalize(vec3(1,-1,-1));
+	vec3 nn = normalize(n);
+	float f = dot(nn,lig)*.25 + 0.75;
+
+	vec3 u = normalize(p.xyz); //u = normalize view direction
+		//r = reflected view direction
+		//   /|\
+		// r/_|_\u
+		//    |n
+	float d = max(dot(dot(nn,lig)*nn*2.0-lig,u),0.0); //Standard reflection
+	d *= d; d *= d; d *= d; f += d*1.0;
+
+	gl_FragColor = texture2D(tex0,vec2(t.s,t.t))*c*f;
+}
