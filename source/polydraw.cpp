@@ -1727,14 +1727,27 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 	}
 	switch(tex[itex].tar)
 	{
-		case GL_TEXTURE_1D: glTexSubImage1D(tex[itex].tar,0,0    ,tex[itex].sizx               ,format,type,gbmp); break;
-		case GL_TEXTURE_2D: glTexSubImage2D(tex[itex].tar,0,0,0  ,tex[itex].sizx,tex[itex].sizy,format,type,gbmp);
-			if (((icoltype&0xf0) >= KGL_MIPMAP) && ((icoltype&15) == KGL_BGRA32)) gluBuild2DMipmaps(tex[itex].tar,4,tex[itex].sizx,tex[itex].sizy,GL_BGRA_EXT,GL_UNSIGNED_BYTE,gbmp);
-			break;
-		case GL_TEXTURE_3D: ((PFNGLTEXSUBIMAGE3DPROC)glfp[glTexSubImage3D])(tex[itex].tar,0,0,0,0,tex[itex].sizx,tex[itex].sizy,tex[itex].sizz,format,type,gbmp); break;
-		case GL_TEXTURE_CUBE_MAP:
-			for(i=0;i<6;i++) glTexSubImage2D(cubemapconst[i],0,0,0,tex[itex].sizx,tex[itex].sizx,format,type,gbmp+tex[itex].sizx*tex[itex].sizx*glbyteperpix*cubemapindex[i]);
-			break;
+	case GL_TEXTURE_1D:
+		glTexSubImage1D(tex[itex].tar, 0, 0, tex[itex].sizx, format, type, gbmp);
+		break;
+
+	case GL_TEXTURE_2D:
+		glTexSubImage2D(tex[itex].tar, 0, 0, 0, tex[itex].sizx, tex[itex].sizy, format, type, gbmp);
+
+		if ((icoltype & 0xf0) >= KGL_MIPMAP && (icoltype & 15) == KGL_BGRA32)
+			gluBuild2DMipmaps(tex[itex].tar, 4, tex[itex].sizx, tex[itex].sizy, GL_BGRA_EXT, GL_UNSIGNED_BYTE, gbmp);
+
+		break;
+
+	case GL_TEXTURE_3D:
+		((PFNGLTEXSUBIMAGE3DPROC)glfp[glTexSubImage3D])(tex[itex].tar, 0, 0, 0, 0, tex[itex].sizx, tex[itex].sizy, tex[itex].sizz, format, type, gbmp);;
+		break;
+
+	case GL_TEXTURE_CUBE_MAP:
+		for (i = 0; i < 6; i++)
+			glTexSubImage2D(cubemapconst[i], 0, 0, 0, tex[itex].sizx, tex[itex].sizx, format, type, gbmp + tex[itex].sizx*tex[itex].sizx*glbyteperpix*cubemapindex[i]);
+
+		break;
 	}
 
 	return(0.0);
@@ -1857,7 +1870,7 @@ double kglUniform4fv(double sh, double num, double *vals)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglUniform1iv(double sh, double num, double *vals)
+double kglUniform1iv(double sh, double num, double* vals)
 {
 	int i, inum; int *ivals;
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
@@ -1868,43 +1881,79 @@ double kglUniform1iv(double sh, double num, double *vals)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglUniform2iv(double sh, double num, double *vals)
+double kglUniform2iv(double sh, double num, double* vals)
 {
-	int i, inum; int *ivals;
-	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
-	ivals = (int *)_alloca(inum*sizeof(ivals[0])); if (!ivals) return(0.0);
-	for(i=0;i<inum;i++) ivals[i] = (int)vals[i];
-	((PFNGLUNIFORM2IVPROC)glfp[glUniform2iv])((int)sh,inum,ivals);
-	return(0.0);
+	int i, inum;
+	int* ivals;
+
+	inum = min((int)num, MAXUNIFVALNUM);
+
+	if (inum < 0)
+		return 0.0;
+
+	ivals = (int*)_alloca(inum*sizeof(ivals[0]));
+
+	if (!ivals)
+		return 0.0;
+
+	for (i = 0; i < inum; i++)
+		ivals[i] = (int)vals[i];
+
+	((PFNGLUNIFORM2IVPROC)glfp[glUniform2iv])((int)sh, inum, ivals);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglUniform3iv(double sh, double num, double *vals)
+double kglUniform3iv(double sh, double num, double* vals)
 {
-	int i, inum; int *ivals;
-	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
-	ivals = (int *)_alloca(inum*sizeof(ivals[0])); if (!ivals) return(0.0);
-	for(i=0;i<inum;i++) ivals[i] = (int)vals[i];
-	((PFNGLUNIFORM3IVPROC)glfp[glUniform3iv])((int)sh,inum,ivals);
-	return(0.0);
+	int i, inum;
+	int* ivals;
+
+	inum = min((int)num, MAXUNIFVALNUM);
+
+	if (inum < 0)
+		return 0.0;
+
+	ivals = (int*)_alloca(inum*sizeof(ivals[0]));
+
+	if (!ivals)
+		return 0.0;
+
+	for (i = 0; i < inum; i++)
+		ivals[i] = (int)vals[i];
+
+	((PFNGLUNIFORM3IVPROC)glfp[glUniform3iv])((int)sh, inum, ivals);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglUniform4iv(double sh, double num, double *vals)
+double kglUniform4iv(double sh, double num, double* vals)
 {
-	int i, inum; int *ivals;
-	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
-	ivals = (int *)_alloca(inum*sizeof(ivals[0])); if (!ivals) return(0.0);
-	for(i=0;i<inum;i++) ivals[i] = (int)vals[i];
-	((PFNGLUNIFORM4IVPROC)glfp[glUniform4iv])((int)sh,inum,ivals);
-	return(0.0);
+	int i, inum;
+	int* ivals;
+
+	inum = min((int)num, MAXUNIFVALNUM);
+
+	if (inum < 0)
+		return 0.0;
+
+	ivals = (int*)_alloca(inum*sizeof(ivals[0]));
+
+	if (!ivals)
+		return 0.0;
+
+	for (i = 0; i < inum; i++)
+		ivals[i] = (int)vals[i];
+
+	((PFNGLUNIFORM4IVPROC)glfp[glUniform4iv])((int)sh, inum, ivals);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 double kglGetAttribLoc(char *shadvarnam)
 {
 	int i;
-	i = ((PFNGLGETATTRIBLOCATIONPROC)glfp[glGetAttribLocation])(shadprog[gcurshader],shadvarnam);
+	i = ((PFNGLGETATTRIBLOCATIONPROC)glfp[glGetAttribLocation])(shadprog[gcurshader], shadvarnam);
 	return((double)i);
 }
 
@@ -1917,21 +1966,26 @@ double kglVertexAttrib4f(double sh, double v0, double v1, double v2, double v3) 
 ///////////////////////////////////////////////////////////////////////////////
 double kglCullFace(double mode)
 {
-	int imode; imode = (int)mode;
+	int imode = (int)mode;
 
-	if (imode == GL_NONE) { glDisable(GL_CULL_FACE); return(0.0); }
+	if (imode == GL_NONE)
+	{
+		glDisable(GL_CULL_FACE);
+		return 0.0;
+	}
+
 	glEnable(GL_CULL_FACE);
 	glCullFace(imode);
 	glFrontFace(GL_CW);
-	return(0.0);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 double kglBlendFunc(double sfactor, double dfactor)
 {
 	glEnable(GL_BLEND);
-	glBlendFunc(sfactor,dfactor);
-	return(0.0);
+	glBlendFunc(sfactor, dfactor);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1942,16 +1996,16 @@ double kglDisable(double d) { glDisable(d); return(0); }
 double mysleep(double ms)
 {
 	int i = ((int)ms);
-	i = min(max(i,0),1000);
+	i = min(max(i, 0), 1000);
 	Sleep(i);
-	return(0.0);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 double glswapinterval(double val)
 {
 	((PFNWGLSWAPINTERVALEXTPROC)glfp[wglSwapIntervalEXT])((int)val);
-	return(0.0);
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1960,10 +2014,15 @@ double glklockstart(double _)
 {
 	if (supporttimerquery)
 	{
-		if (ginstartklock) ((PFNGLENDQUERYPROC)glfp[glEndQuery])(GL_TIME_ELAPSED_EXT); else ginstartklock = 1;
-		((PFNGLBEGINQUERYPROC)glfp[glBeginQuery])(GL_TIME_ELAPSED_EXT,queries[0]);
+		if (ginstartklock)
+			((PFNGLENDQUERYPROC)glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
+		else
+			ginstartklock = 1;
+
+		((PFNGLBEGINQUERYPROC)glfp[glBeginQuery])(GL_TIME_ELAPSED_EXT, queries[0]);
 	}
-	return(0.0);
+
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1973,18 +2032,28 @@ double glklockelapsed(double _)
 	GLuint dtim;
 	GLint got;
 
-	if (!supporttimerquery) return(-1.0);
-	if (!ginstartklock) { return(-2.0); } ginstartklock = 0;
+	if (!supporttimerquery)
+		return -1.0;
+
+	if (!ginstartklock)
+		return -2.0;
+
+	ginstartklock = 0;
 	((PFNGLENDQUERYPROC)glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
-	do { ((PFNGLGETQUERYOBJECTIVPROC)glfp[glGetQueryObjectiv])(queries[0],GL_QUERY_RESULT_AVAILABLE,&got); } while (!got);
+
+	do
+	{
+		((PFNGLGETQUERYOBJECTIVPROC)glfp[glGetQueryObjectiv])(queries[0], GL_QUERY_RESULT_AVAILABLE, &got);
+	}
+	while (!got);
 
 	if (glfp[glGetQueryObjectui64vEXT])
 	{
-		((PFNGLGETQUERYOBJECTUI64VEXTPROC)glfp[glGetQueryObjectui64vEXT])(queries[0],GL_QUERY_RESULT,&qdtim);
+		((PFNGLGETQUERYOBJECTUI64VEXTPROC)glfp[glGetQueryObjectui64vEXT])(queries[0], GL_QUERY_RESULT, &qdtim);
 		return(((double)qdtim)*1e-9);
 	}
 
-	((PFNGLGETQUERYOBJECTUIVPROC)glfp[glGetQueryObjectuiv])(queries[0],GL_QUERY_RESULT,&dtim);
+	((PFNGLGETQUERYOBJECTUIVPROC)glfp[glGetQueryObjectuiv])(queries[0], GL_QUERY_RESULT, &dtim);
 	return(((double)dtim)*1e-9);
 }
 
@@ -1993,7 +2062,11 @@ double myklock(double d)
 {
 	__int64 q;
 	int i = (int)d;
-	if (!i) { QueryPerformanceCounter((LARGE_INTEGER *)&q); return(((double)(q-qtim0))/((double)qper)); }
+	if (!i)
+	{
+		QueryPerformanceCounter((LARGE_INTEGER *)&q);
+		return(((double)(q - qtim0)) / ((double)qper));
+	}
 
 	if (labs(i) < 10)
 	{
@@ -2003,7 +2076,14 @@ double myklock(double d)
 			//   cls(0); moveto(0,100);
 			//   for(i=-9;i<=9;i++) printf("klock(%+2g) = %f\n",i,klock(i));
 		SYSTEMTIME tim;
-		if (i < 0) { GetSystemTime(&tim); i = -i; } else GetLocalTime(&tim);
+		if (i < 0)
+		{
+			GetSystemTime(&tim);
+			i = -i;
+		}
+		else
+			GetLocalTime(&tim);
+
 		switch(i)
 		{
 			case 1:
@@ -2036,14 +2116,22 @@ static HMIDIOUT hmidoplaynote = 0;
 static void playnoteuninit() { if ((((long)hmidoplaynote)+1)&0xfffffffe) { midiOutClose(hmidoplaynote); hmidoplaynote = 0; } }
 double myplaynote(double chn, double frq, double vol)
 {
-	if (hmidoplaynote == (HMIDIOUT)-1) return(-1.0);
+	if (hmidoplaynote == (HMIDIOUT)-1)
+		return -1.0;
+
 	if (hmidoplaynote == 0)
-		if (midiOutOpen(&hmidoplaynote,MIDI_MAPPER,0,0,0) != MMSYSERR_NOERROR)
-			{ hmidoplaynote = (HMIDIOUT)-1; return(-1.0); }
-	midiOutShortMsg(hmidoplaynote,(min(max((int)vol,0),127)<<16) +
-											(min(max((int)frq,0),127)<< 8) +
-											(min(max((int)chn,0),255)    ));
-	return(0.0);
+	{
+		if (midiOutOpen(&hmidoplaynote, MIDI_MAPPER, 0, 0, 0) != MMSYSERR_NOERROR)
+		{
+			hmidoplaynote = (HMIDIOUT)-1;
+			return -1.0;
+		}
+	}
+
+	midiOutShortMsg(hmidoplaynote, (min(max((int)vol, 0), 127) << 16) +
+		(min(max((int)frq, 0), 127) << 8) +
+		(min(max((int)chn, 0), 255)));
+	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2054,10 +2142,19 @@ double mykzaddstack(char *filnam)
 {
 	long i;
 
-	for(i=numzips-1;i>=0;i--) if (!_stricmp(zipnam[i],filnam)) return(0.0);
+	for (i = numzips - 1; i >= 0; i--)
+	{
+		if (!_stricmp(zipnam[i], filnam))
+			return 0.0;
+	}
+
 	i = strlen(filnam);
-	if ((numzips >= MAXZIPS) || (i >= MAX_PATH+4)) return(-1.0);
-	memcpy(&zipnam[numzips],filnam,i+1); numzips++;
+
+	if (numzips >= MAXZIPS || i >= MAX_PATH+4)
+		return -1.0;
+
+	memcpy(&zipnam[numzips], filnam, i + 1);
+	numzips++;
 	kzaddstack(filnam);
 	return(0.0);
 }
@@ -2073,7 +2170,7 @@ double mysrand(double val)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Parse script for '@' lines, generating list of sections
-static int txt2sec(char *t, tsec_t *ltsec)
+static int txt2sec(char* t, tsec_t *ltsec)
 {
 	int i, j, i0, ntyp, n, slast[4], scnt[4], olin, lin;
 	char* cptr;
@@ -2084,7 +2181,12 @@ static int txt2sec(char *t, tsec_t *ltsec)
 		scnt[i] = 0;
 	}
 
-	i0 = 0; ntyp = 0; n = 0; olin = 0; lin = 0; ltsec[0].nam[0] = 0;
+	i0 = 0;
+	ntyp = 0;
+	n = 0;
+	olin = 0;
+	lin = 0;
+	ltsec[0].nam[0] = 0;
 
 	for (i = 0; t[i]; i++)
 	{
@@ -2092,19 +2194,28 @@ static int txt2sec(char *t, tsec_t *ltsec)
 		{
 			if (t[i+1] == '/')
 			{
-				for(i+=2;(t[i]) && (t[i]!='\n');i++);
+				for (i += 2; (t[i]) && (t[i] != '\n'); i++)
+					;
+
 				lin++;
 			}
 			else if (t[i+1] == '*')
 			{
-				for(i+=2;(t[i]) && ((t[i]!='*') || (t[i+1]!='/'));i++) if (t[i] == '\n') lin++;
-				if (!t[i]) break;
+				for (i += 2; t[i] && (t[i] != '*' || t[i + 1] != '/'); i++)
+				{
+					if (t[i] == '\n')
+						lin++;
+				}
+
+				if (!t[i])
+					break;
+
 				i++;
 			}
 		}
 		else if (t[i] == '\n')
 			lin++;
-		else if ((t[i] == '@') && ((!i) || ((t[i-1] == '\r') || (t[i-1] == '\n'))))
+		else if (t[i] == '@' && (!i || (t[i-1] == '\r' || t[i-1] == '\n')))
 		{
 			ltsec[n].i0 = i0;
 			ltsec[n].i1 = i;
@@ -2155,13 +2266,13 @@ static int txt2sec(char *t, tsec_t *ltsec)
 				}
 			}
 
-			if ((t[i] == ':') && (n < TSECMAX-1))
+			if (t[i] == ':' && n < TSECMAX-1)
 			{
 				j = 0;
 
-				for(i++;(t[i]) && (t[i]!='\r') && (t[i]!='\n');i++)
+				for (i++; t[i] && t[i]!='\r' && t[i]!='\n'; i++)
 				{
-					if ((t[i] == '/') && (t[i+1] == '/'))
+					if (t[i] == '/' && t[i+1] == '/')
 						break;
 
 					if (j < sizeof(ltsec[0].nam)-1)
@@ -2171,7 +2282,7 @@ static int txt2sec(char *t, tsec_t *ltsec)
 					}
 				}
 
-				while ((j > 0) && (ltsec[n+1].nam[j-1] == ' '))
+				while (j > 0 && ltsec[n+1].nam[j-1] == ' ')
 					j--;
 
 				ltsec[n+1].nam[j] = 0;
@@ -2182,7 +2293,9 @@ static int txt2sec(char *t, tsec_t *ltsec)
 			while ((t[i]) && (t[i] != '\n'))
 				i++;
 
-			lin++; olin = lin; i0 = i+1;
+			lin++;
+			olin = lin;
+			i0 = i+1;
 
 			n++;
 
@@ -2207,23 +2320,23 @@ static int txt2sec(char *t, tsec_t *ltsec)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void glsl_geterrorlines(char *error, int offs)
+static void glsl_geterrorlines(char* error, int offs)
 {
 	int i, j;
 
-	for(i = 0; error[i]; i++)
+	for (i = 0; error[i]; i++)
 	{
-		if ((i) && (error[i-1] != '\n')) continue; // Check only at beginning of lines
+		if (i && error[i-1] != '\n') continue; // Check only at beginning of lines
 
 		if (!memcmp(&error[i], "0(",2)) // NVIDIA style
 		{
-			j = atol(&error[i+2])-1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j>>3] |= (1<<(j&7));
+			j = atol(&error[i + 2]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
+			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
 		}
 		else if (!memcmp(&error[i], "(",1)) // NVIDIA style (old)
 		{
-			j = atol(&error[i+1])-1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j>>3] |= (1<<(j&7));
+			j = atol(&error[i + 1]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
+			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
 		}
 		else if (!memcmp(&error[i], "ERROR: ",7)) // ATI(AMD)/Intel style
 		{
@@ -2231,8 +2344,8 @@ static void glsl_geterrorlines(char *error, int offs)
 			if (!((error[i] >= '0') && (error[i] <= '9'))) { continue; } i++;
 			while ((error[i] >= '0') && (error[i] <= '9')) i++;
 			if (error[i] != ':') { continue; } i++;
-			j = atol(&error[i])-1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j>>3] |= (1<<(j&7));
+			j = atol(&error[i]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
+			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
 		}
 	}
 }
@@ -2242,11 +2355,13 @@ extern void updatelines(int);
 
 static void setShaders(HWND h, HWND hWndEdit)
 {
-	static const char shadnam[3][5] = {"vert", "geom", "frag"};
-	static const int shadconst[3] = {GL_VERTEX_SHADER,GL_GEOMETRY_SHADER_EXT,GL_FRAGMENT_SHADER};
+	static const char shadnam[3][5] = { "vert", "geom", "frag" };
+	static const int shadconst[3] = { GL_VERTEX_SHADER, GL_GEOMETRY_SHADER_EXT, GL_FRAGMENT_SHADER };
 	int i, j, k, compiled, needloop = 0, needrecompile, tseci;
-	char ch, *cptr, tbuf[4096];
-	const char *erst;
+	char ch;
+	char* cptr;
+	char tbuf[4096];
+	const char* erst;
 
 	if (gshaderstuck) return;
 
@@ -2303,12 +2418,12 @@ static void setShaders(HWND h, HWND hWndEdit)
 	if (!needrecompile)
 		return;
 
-	memset(badlinebits,0,(textsiz+7)>>3);
+	memset(badlinebits, 0, (textsiz + 7) >> 3);
 
-	if ((usearbasm) || (usearbasmonly))
+	if (usearbasm || usearbasmonly)
 	{
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB,0);
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB  ,0);
+		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB, 0);
+		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB, 0);
 		for (i = 0; i <= 2; i += 2)
 		{
 			for (; shadn[i] > 0; shadn[i]--)
@@ -2327,7 +2442,7 @@ static void setShaders(HWND h, HWND hWndEdit)
 		}
 
 		for(; shadprogn > 0; shadprogn--)
-			((PFNGLDELETEPROGRAMPROC)glfp[glDeleteProgram])(shadprog[shadprogn-1]);
+			((PFNGLDELETEPROGRAMPROC)glfp[glDeleteProgram])(shadprog[shadprogn - 1]);
 	}
 
 	for(tseci = 0; tseci < tsecn; tseci++)
@@ -2343,7 +2458,7 @@ static void setShaders(HWND h, HWND hWndEdit)
 
 		j = tsec[tseci].typ-1;
 
-		if (((text[tsec[tseci].i0] == '!') && (text[tsec[tseci].i0+1] == '!')) || (usearbasmonly))
+		if ((text[tsec[tseci].i0] == '!' && text[tsec[tseci].i0+1] == '!') || usearbasmonly)
 		{
 			if ((!usearbasm) && (!usearbasmonly))
 				((PFNGLUSEPROGRAMPROC)glfp[glUseProgram])(0);
@@ -2352,12 +2467,12 @@ static void setShaders(HWND h, HWND hWndEdit)
 			glGetError(); //flush errors (could be from script)
 
 			if (tsec[tseci].nam[0])
-				sprintf(tbuf,"compile %s_asm %s",shadnam[j],tsec[tseci].nam);
+				sprintf(tbuf, "compile %s_asm %s", shadnam[j], tsec[tseci].nam);
 			else
-				sprintf(tbuf,"compile %s_asm#%d",shadnam[j],tsec[tseci].cnt);
+				sprintf(tbuf, "compile %s_asm#%d", shadnam[j], tsec[tseci].cnt);
 
 			if (tsec[tseci].typ&1)
-				kputs(tbuf,1);
+				kputs(tbuf, 1);
 
 			if (tsec[tseci].typ == 1)
 				i = GL_VERTEX_PROGRAM_ARB;
@@ -2369,15 +2484,15 @@ static void setShaders(HWND h, HWND hWndEdit)
 			if (i)
 			{
 				glEnable(i);
-				((PFNGLGENPROGRAMSARBPROC)glfp[glGenProgramsARB])(1,(GLuint*)&j);
-				((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(i,j);
+				((PFNGLGENPROGRAMSARBPROC)glfp[glGenProgramsARB])(1, (GLuint*)&j);
+				((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(i, j);
 
 				if (i == GL_VERTEX_PROGRAM_ARB)
 					shad[0][shadn[0]] = j;
 				else
 					shad[2][shadn[2]] = j;
 
-				((PFNGLPROGRAMSTRINGARBPROC)glfp[glProgramStringARB])(i,GL_PROGRAM_FORMAT_ASCII_ARB,tsec[tseci].i1-tsec[tseci].i0,&text[tsec[tseci].i0]);
+				((PFNGLPROGRAMSTRINGARBPROC)glfp[glProgramStringARB])(i, GL_PROGRAM_FORMAT_ASCII_ARB, tsec[tseci].i1 - tsec[tseci].i0, &text[tsec[tseci].i0]);
 
 				if (glGetError() != GL_NO_ERROR)
 				{
@@ -2389,15 +2504,15 @@ static void setShaders(HWND h, HWND hWndEdit)
 						if ((j) && (erst[j-1] != '\n'))
 							continue;
 
-						if (!_memicmp(&erst[j],"line "       , 5))
-							k = atol(&erst[j+ 5])-1;
-						else if (!_memicmp(&erst[j],"Error, line ",12))
-							k = atol(&erst[j+12])-1;
+						if (!_memicmp(&erst[j], "line ", 5))
+							k = atol(&erst[j + 5]) - 1;
+						else if (!_memicmp(&erst[j], "Error, line ", 12))
+							k = atol(&erst[j + 12]) - 1;
 						else
 							continue;
 
 						if ((unsigned)k < (unsigned)textsiz)
-							badlinebits[(tsec[tseci].linofs+k)>>3] |= (1<<((tsec[tseci].linofs+k)&7));
+							badlinebits[(tsec[tseci].linofs + k) >> 3] |= (1 << ((tsec[tseci].linofs + k) & 7));
 					}
 
 					updatelines(1);
@@ -2405,7 +2520,7 @@ static void setShaders(HWND h, HWND hWndEdit)
 				}
 			}
 		}
-		else if ((j == 1) && (!glfp[glProgramParameteri]))
+		else if (j == 1 && !glfp[glProgramParameteri])
 		{
 			kputs("ERROR: Geometry shader not supported by this hardware :/",1);
 		}
@@ -2414,11 +2529,11 @@ static void setShaders(HWND h, HWND hWndEdit)
 			usearbasm = 0;
 
 			if (tsec[tseci].nam[0])
-				sprintf(tbuf,"compile %s %s",shadnam[j],tsec[tseci].nam);
+				sprintf(tbuf, "compile %s %s", shadnam[j], tsec[tseci].nam);
 			else
-				sprintf(tbuf,"compile %s#%d",shadnam[j],tsec[tseci].cnt);
+				sprintf(tbuf, "compile %s#%d", shadnam[j], tsec[tseci].cnt);
 
-			kputs(tbuf,1);
+			kputs(tbuf, 1);
 
 			if (j == 1)
 				geo2blocki[tsec[tseci].cnt] = tseci; //map shader to block for geometry (to access geo_in, geo_out, geo_nverts)
@@ -3055,12 +3170,10 @@ static void updatelines(int force)
 	k = 1;
 	totlin = 0;
 
-	for(i = 0; 1; i++)
+	for (i = 0; true; i++)
 	{
 		if (ttext[i] == '@' && (!i || ttext[i-1] == '\r' || ttext[i-1] == '\n'))
-		{
 			k = 0;
-		}
 
 		if (ttext[i] == '\n' || !ttext[i])
 		{
@@ -3099,12 +3212,13 @@ static void updatelines(int force)
 			if (!ttext[i])
 				break;
 
-			k++; totlin++;
+			k++;
+			totlin++;
 		}
 	}
 
 	line[j] = 0;
-	SetWindowText(hWndLine,line);
+	SetWindowText(hWndLine, line);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3947,7 +4061,7 @@ static const char g_cppKeyWords[] =
 "__virtual_inheritance";
 
 /// Default color scheme
-static SScintillaColors g_rgbSyntaxCpp[] =
+static SScintillaColors g_RGBSyntaxCpp[] =
 {
 	{ SCE_C_DEFAULT, RGB(0xC8, 0xC8, 0xC8) },
 
@@ -4018,22 +4132,66 @@ static void resetwindows(int cmdshow)
 	if (!popts.fullscreen)
 	{
 		oglxres = ((xres >> 1) & ~3);
-		oglyres = ((oglxres*3)>>2);
-		x1[0] = oglxres;      y1[0] = oglyres;
-		x1[1] = oglxres;      y1[1] = yres - oglyres;
-		x1[2] = linenumwid; y1[2] = yres;
-		x1[3] = xres - oglxres - linenumwid; y1[3] = yres;
-		if (!(popts.rendcorn&1)) { x0[0] = 0; x0[1] =       0; x0[2] = oglxres; x0[3] = oglxres+linenumwid; } else { x0[0] = xres-oglxres; x0[1] = xres-oglxres; x0[2] = 0; x0[3] = linenumwid; }
-		if (!(popts.rendcorn&2)) { y0[0] = 0; y0[1] = oglyres; y0[2] =       0; y0[3] =                  0; } else { y0[0] = yres-oglyres; y0[1] =            0; y0[2] = 0; y0[3] =          0; }
+		oglyres = ((oglxres * 3) >> 2);
+		x1[0] = oglxres;
+		y1[0] = oglyres;
+		x1[1] = oglxres;
+		y1[1] = yres - oglyres;
+		x1[2] = linenumwid;
+		y1[2] = yres;
+		x1[3] = xres - oglxres - linenumwid;
+		y1[3] = yres;
+
+		if (!(popts.rendcorn & 1))
+		{
+			x0[0] = 0;
+			x0[1] = 0;
+			x0[2] = oglxres;
+			x0[3] = oglxres + linenumwid;
+		}
+		else
+		{
+			x0[0] = xres - oglxres;
+			x0[1] = xres - oglxres;
+			x0[2] = 0;
+			x0[3] = linenumwid;
+		}
+
+		if (!(popts.rendcorn & 2))
+		{
+			y0[0] = 0;
+			y0[1] = oglyres;
+			y0[2] = 0;
+			y0[3] = 0;
+		}
+		else
+		{
+			y0[0] = yres - oglyres;
+			y0[1] = 0;
+			y0[2] = 0;
+			y0[3] = 0;
+		}
 	}
 	else
 	{
 		oglxres = xres;
 		oglyres = yres;
-		x0[0] = 0; y0[0] = 0; x1[0] = oglxres; y1[0] = oglyres;
-		x0[1] = 0; y0[1] = oglyres; x1[1] = 0; y1[1] = 0;
-		x0[2] = oglxres; y0[2] = 0; x1[2] = 0; y1[2] = 0;
-		x0[3] = oglxres; y0[3] = 0; x1[3] = 0; y1[3] = 0;
+		x0[0] = 0;
+		y0[0] = 0;
+		x1[0] = oglxres;
+		y1[0] = oglyres;
+		x0[1] = 0;
+		y0[1] = oglyres;
+		x1[1] = 0;
+		y1[1] = 0;
+		x0[2] = oglxres;
+		y0[2] = 0;
+		x1[2] = 0;
+		y1[2] = 0;
+		x0[3] = oglxres;
+		y0[3] = 0;
+		x1[3] = 0;
+		y1[3] = 0;
 	}
 
 	if (hWndDraw)
@@ -4082,8 +4240,8 @@ static void resetwindows(int cmdshow)
 		SendMessage(hWndEdit, SCI_SETSELBACK, TRUE, RGB(0, 0, 255));
 
 		// Set syntax colors
-		for (long i = 0; g_rgbSyntaxCpp[i].iItem != -1; i++)
-			SetAStyle(hWndEdit, g_rgbSyntaxCpp[i].iItem, g_rgbSyntaxCpp[i].rgb);
+		for (long i = 0; g_RGBSyntaxCpp[i].iItem != -1; i++)
+			SetAStyle(hWndEdit, g_RGBSyntaxCpp[i].iItem, g_RGBSyntaxCpp[i].rgb);
 
 #if 0
 		SendMessage(hWndEdit, EM_LIMITTEXT, textsiz - 1, 0);
@@ -4123,7 +4281,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			break;
 
 		case WM_LBUTTONDOWN:
-			if (fmod(dbstatus,2.0) < 1)
+			if (fmod(dbstatus, 2.0) < 1)
 				dbstatus += 1;
 
 			p0.x = p0.y = 0;
@@ -4141,8 +4299,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		case WM_MBUTTONDOWN: if (fmod(dbstatus,8.0) <  4) dbstatus += 4; break;
 		case WM_MBUTTONUP:   if (fmod(dbstatus,8.0) >= 4) dbstatus -= 4; break;
 		case WM_KEYUP:
-			updateshifts(lParam,0);
-			i = ((lParam>>16)&127)+((lParam>>17)&128);
+			updateshifts(lParam, 0);
+			i = ((lParam >> 16) & 127) + ((lParam >> 17) & 128);
 
 			if (dkeystatus[i] != 0.0)
 				dkeystatus[i] = 0.0;
@@ -4151,7 +4309,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 		case WM_KEYDOWN:
 			updateshifts(lParam,1);
-			i = ((lParam>>16)&127)+((lParam>>17)&128);
+			i = ((lParam >> 16) & 127) + ((lParam >> 17) & 128);
 			if ((i == 1) && (gmehax)) PostQuitMessage(0);
 			if (dkeystatus[i] == 0.0) dkeystatus[i] = 1.0;
 			if ((wParam&255) == VK_F1) { helpabout(); return(0); }
@@ -4164,7 +4322,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 				popts.fullscreen = !popts.fullscreen;
 				CheckMenuItem(gmenu,MENU_FULLSCREEN,popts.fullscreen*MF_CHECKED);
 				resetwindows(SW_NORMAL);
-				return(0);
+				return 0;
 			}
 
 			break;
@@ -4223,32 +4381,41 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			case MENU_EVALHIGHLIGHT:
 				{
 					int i0, i1;
-					SendMessage(hWndEdit,EM_GETSEL,(unsigned)&i0,(unsigned)&i1);
+					SendMessage(hWndEdit, EM_GETSEL, (unsigned)&i0, (unsigned)&i1);
+
 					if (i0 < i1)
 					{
 						GetWindowText(hWndEdit,ttext,textsiz);
-						if (eval_highlight(&ttext[i0],i1-i0)) MessageBeep(64); else MessageBeep(16);
+
+						if (eval_highlight(&ttext[i0], i1 - i0))
+							MessageBeep(64);
+						else
+							MessageBeep(16);
 					}
 				}
 
 				break;
 
 			case MENU_RENDPLC+0: case MENU_RENDPLC+1: case MENU_RENDPLC+2: case MENU_RENDPLC+3:
-				popts.rendcorn = LOWORD(wParam)-MENU_RENDPLC; popts.fullscreen = 0;
-				for(i=0;i<4;i++) CheckMenuItem(gmenu,MENU_RENDPLC+i,(LOWORD(wParam)==MENU_RENDPLC+i)*MF_CHECKED);
-				CheckMenuItem(gmenu,MENU_FULLSCREEN,popts.fullscreen*MF_CHECKED);
+				popts.rendcorn = LOWORD(wParam) - MENU_RENDPLC;
+				popts.fullscreen = 0;
+
+				for (i = 0; i < 4; i++)
+					CheckMenuItem(gmenu, MENU_RENDPLC + i, (LOWORD(wParam) == MENU_RENDPLC + i)*MF_CHECKED);
+
+				CheckMenuItem(gmenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
 				resetwindows(SW_NORMAL);
 				break;
 
 			case MENU_FULLSCREEN:
 				popts.fullscreen = !popts.fullscreen;
-				CheckMenuItem(gmenu,MENU_FULLSCREEN,popts.fullscreen*MF_CHECKED);
+				CheckMenuItem(gmenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
 				resetwindows(SW_NORMAL);
 				break;
 
 			case MENU_CLEARBUFFER:
 				popts.clearbuffer = !popts.clearbuffer;
-				CheckMenuItem(gmenu,MENU_CLEARBUFFER,popts.clearbuffer*MF_CHECKED);
+				CheckMenuItem(gmenu, MENU_CLEARBUFFER, popts.clearbuffer*MF_CHECKED);
 				resetwindows(SW_NORMAL);
 				break;
 
@@ -4257,20 +4424,21 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 					CHOOSEFONT cf;
 					static LOGFONT lf;
 
-					memset(&cf,0,sizeof(cf));
+					memset(&cf, 0, sizeof(cf));
 					cf.lStructSize = sizeof(cf);
 					cf.hwndOwner = hWnd;
 					cf.lpLogFont = &lf;
 					lf.lfHeight = popts.fontheight;
 					lf.lfWidth = popts.fontwidth;
 					strcpy(lf.lfFaceName,popts.fontname);
-					cf.Flags = CF_SCREENFONTS|CF_FIXEDPITCHONLY|CF_INITTOLOGFONTSTRUCT|CF_NOSTYLESEL;
+					cf.Flags = CF_SCREENFONTS | CF_FIXEDPITCHONLY | CF_INITTOLOGFONTSTRUCT | CF_NOSTYLESEL;
 
 					if (ChooseFont(&cf))
 					{
 						if (lf.lfFaceName[0])
 						{
-							if (hfont) DeleteObject(hfont);
+							if (hfont)
+								DeleteObject(hfont);
 
 							popts.fontheight = lf.lfHeight;
 							popts.fontwidth = lf.lfWidth;
@@ -4340,13 +4508,13 @@ static void EnableOpenGL(HWND hWnd, HDC *hDC, HGLRC *hRC)
 	ZeroMemory(&pfd, sizeof(pfd));
 	pfd.nSize = sizeof(pfd);
 	pfd.nVersion = 1;
-	pfd.dwFlags = PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
+	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
 	pfd.iPixelType = PFD_TYPE_RGBA;
 	pfd.cColorBits = 24;
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
-	format = ChoosePixelFormat(*hDC,&pfd);
-	SetPixelFormat(*hDC,format,&pfd);
+	format = ChoosePixelFormat(*hDC, &pfd);
+	SetPixelFormat(*hDC, format, &pfd);
 
 	*hRC = wglCreateContext(*hDC);
 	wglMakeCurrent(*hDC,*hRC);
@@ -4355,9 +4523,9 @@ static void EnableOpenGL(HWND hWnd, HDC *hDC, HGLRC *hRC)
 ///////////////////////////////////////////////////////////////////////////////
 static void DisableOpenGL(HWND hWnd, HDC hDC, HGLRC hRC)
 {
-	wglMakeCurrent(0,0);
+	wglMakeCurrent(0, 0);
 	wglDeleteContext(hRC);
-	ReleaseDC(hWnd,hDC);
+	ReleaseDC(hWnd, hDC);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
