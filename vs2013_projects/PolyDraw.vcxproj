@@ -83,7 +83,7 @@
   <ItemGroup>
     <ClCompile Include="..\source\eval.cpp" />
     <ClCompile Include="..\source\kplib.c" />
-    <ClCompile Include="..\source\polydraw.cpp" />
+    <ClCompile Include="..\source\PolyDraw.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -14,12 +14,12 @@ Authors:
 		His version is pure C (no C++) and available here:
 			http://advsys.net/ken/download.htm#polydraw
 
-   Tigrou (tigrou.ind@gmail.com):
-      Original author & concept.
-      His original release on January 2, 2010 can be found here:
-         http://pouet.net/prod.php?which=54245
-         ftp://ftp.untergrund.net/users/ind/polydraw.zip
+	Tigrou (tigrou.ind@gmail.com):
+		Original author & concept.
+		His original release on January 2, 2010 can be found here:
+			http://pouet.net/prod.php?which=54245
+			ftp://ftp.untergrund.net/users/ind/polydraw.zip
 		 
 
-Original documentation from Ken and Tigrou is available in the doc/ directory.
+	Original documentation from Ken and Tigrou is available in the doc/ directory.
 

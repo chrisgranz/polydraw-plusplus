@@ -1,3 +1,7 @@
+CDG NOTE: Original polydraw README, see main top-level README for updated information.
+
+--
+
 PolyDraw
 An OpenGL/GLSL scripting tool
 

@@ -1,7 +1,10 @@
 
 #include <windows.h>
 #include <process.h>
-#include <gl/gl.h>
+
+//#include <GL/glew.h>
+#include <GL/GL.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -329,38 +332,38 @@ enum
 };
 
 using glfp_t = void(*)();
-static glfp_t glfp[NUMGLFUNC] = {nullptr};
+static glfp_t g_glfp[NUMGLFUNC] = {nullptr};
 
-static int textsiz = 0;
-static char* text = nullptr;
-static char* otext = nullptr;
-static char* ttext = nullptr;
-static char* line = nullptr;
-static char* badlinebits = nullptr;
+static int g_TextSize = 0;
+static char* g_Text = nullptr;
+static char* g_OText = nullptr;
+static char* g_TText = nullptr;
+static char* g_Line = nullptr;
+static char* g_Badlinebits = nullptr;
 
 struct tsec_t
 {
-	int i0, i1; //text index range:{i0<=i<i1} ('@' lines not included)
-	int typ; //0=host,1=vert,2=geom,3=frag
-	int cnt; //0,1,..
-	int linofs; //absolute starting line (need for error line)
-	int nxt; //index to next of same typ
+	int i0, i1; // text index range:{i0<=i<i1} ('@' lines not included)
+	int typ; // 0=host,1=vert,2=geom,3=frag
+	int cnt; // 0,1,..
+	int linofs; // absolute starting line (need for error line)
+	int nxt; // index to next of same typ
 
-	int geo_in;     //GL_POINTS,GL_LINES,GL_LINES_ADJACENCY,GL_TRIANGLES,GL_TRIANGLES_ADJACENCY
-	int geo_out;    //GL_POINTS,GL_LINE_STRIP,GL_TRIANGLE_STRIP
-	int geo_nverts; //1..1024
+	int geo_in;     // GL_POINTS,GL_LINES,GL_LINES_ADJACENCY,GL_TRIANGLES,GL_TRIANGLES_ADJACENCY
+	int geo_out;    // GL_POINTS,GL_LINE_STRIP,GL_TRIANGLE_STRIP
+	int geo_nverts; // 1..1024
 
 	char nam[64];
 };
 
 #define TSECMAX 256
-static tsec_t otsec[TSECMAX];
-static tsec_t tsec[TSECMAX];
-static int otsecn = 0;
-static int tsecn = 0;
+static tsec_t g_OTSec[TSECMAX];
+static tsec_t g_TSec[TSECMAX];
+static int g_OTSecN = 0;
+static int g_TSecN = 0;
 
 #define MAXUSERTEX 256
-static int captexsiz = 512;
+static int g_CapTextSize = 512;
 struct tex_t
 {
 	char nam[MAX_PATH];
@@ -392,29 +395,36 @@ struct shadprogi_t
 	int ishw;
 };
 
-static shadprogi_t shadprogi[PROGMAX]; //remember linkages
+static shadprogi_t shadprogi[PROGMAX]; // remember linkages
 
 //static OSVERSIONINFO osvi;
 static int supporttimerquery = 1;
 static GLint queries[1];
 
-static char* prognam = "PolyDraw";
+static char* g_ProgramName = "PolyDraw++";
 static int oxres = 0, oyres = 0, xres, yres, ActiveApp = 1, shkeystatus = 0;
 static int gshaderstuck = 0, gshadercrashed = 0;
 static double gfov, dbstatus = 0.0, dkeystatus[256] = {0}, dnumframes = 0.0;
 static __int64 qper, qtim0;
 static int oglxres, oglyres, songtime = 0, gmehax = 0, dorecompile = 0;
-static char gsavfilnam[MAX_PATH] = "", *gsavfilnamptr = 0;
-static HWND ghwnd = 0, hWndDraw = 0, hWndCons = 0, hWndLine = 0, hWndEdit = 0;
+static char gsavfilnam[MAX_PATH] = "";
+static char* gsavfilnamptr = 0;
+
+static HWND g_HWnd = 0;
+static HWND hWndDraw = 0;
+static HWND hWndCons = 0;
+//static HWND hWndLine = 0;
+static HWND hWndEdit = 0;
+
 static HFONT hfont = 0;
-static HINSTANCE ghinst;
+static HINSTANCE g_HInst;
 
 enum
 {
-	MENU_FILENEW=0,MENU_FILEOPEN=MENU_FILENEW+4,MENU_FILESAVE,MENU_FILESAVEAS,MENU_FILEEXIT,
-	MENU_EDITFIND,MENU_EDITFINDNEXT,MENU_EDITFINDPREV,MENU_EDITREPLACE,
-	MENU_COMPCONTENT,MENU_EVALHIGHLIGHT,MENU_RENDPLC,MENU_FULLSCREEN=MENU_RENDPLC+4,MENU_CLEARBUFFER,MENU_FONT,
-	MENU_HELPTEXT,MENU_HELPABOUT
+	MENU_FILENEW = 0, MENU_FILEOPEN = MENU_FILENEW + 4, MENU_FILESAVE, MENU_FILESAVEAS, MENU_FILEEXIT,
+	MENU_EDITFIND, MENU_EDITFINDNEXT, MENU_EDITFINDPREV, MENU_EDITREPLACE,
+	MENU_COMPCONTENT, MENU_EVALHIGHLIGHT, MENU_RENDPLC, MENU_FULLSCREEN = MENU_RENDPLC + 4, MENU_CLEARBUFFER, MENU_FONT,
+	MENU_HELPABOUT
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -614,7 +624,7 @@ static int eval_highlight(char* ptr, int leng)
 		unsigned int win98requiresme;
 
 		for (i = 0; i < 2; i++)
-			safecallevent[i] = CreateEvent(0,0,0,0);
+			safecallevent[i] = CreateEvent(0, 0, 0, 0);
 
 		safecall_kill = 0;
 		safecallhand = (HANDLE)_beginthreadex(0, 1048576, eval_highlight_safethread, 0, 0, &win98requiresme);
@@ -674,7 +684,7 @@ static unsigned int __stdcall watchthread(void *_)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-HMENU gmenu = 0;
+HMENU g_HMenu = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 static short* menustart(short* sptr)
@@ -689,7 +699,7 @@ static short* menuadd(short* sptr, char* st, int flags, int id)
 {
 	*sptr++ = flags; //MENUITEMTEMPLATE
 
-	if (!(flags&MF_POPUP))
+	if (!(flags & MF_POPUP))
 		*sptr++ = id;
 
 	sptr += MultiByteToWideChar(CP_ACP, 0, st, -1, (LPWSTR)sptr, strlen(st) + 1);
@@ -732,8 +742,11 @@ static void gluLookAt(double px, double py, double pz, double fx, double fy, dou
 ///////////////////////////////////////////////////////////////////////////////
 static int gluBuild2DMipmaps(GLenum target, GLint components, GLint xs, GLint ys, GLenum format, GLenum type, const void *data)
 {
-	unsigned char *wptr, *rptr, *rptr2;
-	int i, x, y,  nxs, nys, xs4, nxs4;
+	unsigned char* wptr;
+	unsigned char* rptr;
+	unsigned char* rptr2;
+	int i, x, y;
+	int nxs, nys, xs4, nxs4;
 
 	for (i = 1; (xs | ys) & ~1; i++, xs = nxs, ys = nys)
 	{
@@ -749,7 +762,7 @@ static int gluBuild2DMipmaps(GLenum target, GLint components, GLint xs, GLint ys
 			}
 		}
 
-		glTexImage2D(target, i, 4, nxs, nys, 0, format, type, data); //loading 1st time
+		glTexImage2D(target, i, 4, nxs, nys, 0, format, type, data); // loading 1st time
 	 //glTexSubImage2D(target,i,0,0,nxs,nys  ,format,type,data); //overwrite old texture
 	}
 
@@ -987,7 +1000,7 @@ static double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 
 	if ((!usearbasm) && (!usearbasmonly))
 	{
-		((PFNGLUSEPROGRAMPROC)glfp[glUseProgram])(0);
+		((PFNGLUSEPROGRAMPROC)g_glfp[glUseProgram])(0);
 	}
 	else
 	{
@@ -995,8 +1008,8 @@ static double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 		glDisable(GL_FRAGMENT_PROGRAM_ARB);
 	}
 
-	if (glfp[glActiveTexture])
-		((PFNGLACTIVETEXTUREPROC)glfp[glActiveTexture])(GL_TEXTURE0);
+	if (g_glfp[glActiveTexture])
+		((PFNGLACTIVETEXTUREPROC)g_glfp[glActiveTexture])(GL_TEXTURE0);
 
 	glPushAttrib(GL_ENABLE_BIT | GL_MODELVIEW);
 	glGetDoublev(GL_CURRENT_COLOR, ocol);
@@ -1238,8 +1251,8 @@ static double __cdecl setshader_int(int sh0, int sh1, int sh2)
 	{
 		if ((unsigned)sh0 >= (unsigned)shadn[0]) sh0 = 0;
 		if ((unsigned)sh2 >= (unsigned)shadn[2]) sh2 = 0;
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB  ,shad[0][sh0]);
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB,shad[2][sh2]);
+		((PFNGLBINDPROGRAMARBPROC)g_glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB  ,shad[0][sh0]);
+		((PFNGLBINDPROGRAMARBPROC)g_glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB,shad[2][sh2]);
 		return(0.0);
 	}
 
@@ -1247,7 +1260,7 @@ static double __cdecl setshader_int(int sh0, int sh1, int sh2)
 		if ((shadprogi[i].v == sh0) && (shadprogi[i].g == sh1) && (shadprogi[i].f == sh2))
 		{
 			if (!shadprogi[i].ishw) { gcurshader = 0; return(-1.0); }
-			((PFNGLUSEPROGRAMPROC)glfp[glUseProgram])(shadprog[i]); gcurshader = i; return(0.0);
+			((PFNGLUSEPROGRAMPROC)g_glfp[glUseProgram])(shadprog[i]); gcurshader = i; return(0.0);
 		}
 	if (shadprogn >= PROGMAX) return(0.0); //silent error :/
 
@@ -1261,27 +1274,27 @@ static double __cdecl setshader_int(int sh0, int sh1, int sh2)
 	shadprogi[shadprogn].f = sh2;
 	shadprogi[shadprogn].ishw = 1;
 
-	shadprog[shadprogn] = ((PFNGLCREATEPROGRAMPROC)glfp[glCreateProgram])();
-					  ((PFNGLATTACHSHADERPROC)glfp[glAttachShader])(shadprog[shadprogn],shad[0][sh0]);
-	if (sh1 >= 0) ((PFNGLATTACHSHADERPROC)glfp[glAttachShader])(shadprog[shadprogn],shad[1][sh1]);
-					  ((PFNGLATTACHSHADERPROC)glfp[glAttachShader])(shadprog[shadprogn],shad[2][sh2]);
+	shadprog[shadprogn] = ((PFNGLCREATEPROGRAMPROC)g_glfp[glCreateProgram])();
+					  ((PFNGLATTACHSHADERPROC)g_glfp[glAttachShader])(shadprog[shadprogn],shad[0][sh0]);
+	if (sh1 >= 0) ((PFNGLATTACHSHADERPROC)g_glfp[glAttachShader])(shadprog[shadprogn],shad[1][sh1]);
+					  ((PFNGLATTACHSHADERPROC)g_glfp[glAttachShader])(shadprog[shadprogn],shad[2][sh2]);
 
-	if ((sh1 >= 0) && (glfp[glProgramParameteri]))
+	if ((sh1 >= 0) && (g_glfp[glProgramParameteri]))
 	{
 		//Example: @g,GL_TRIANGLES,GL_TRIANGLE_STRIP,1024:myname
 		//glGetIntegerv(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS,&n); //2048
 		//glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES,&n); //1024
 		//glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS,&n); //1024
 		i = geo2blocki[sh1];
-		((PFNGLPROGRAMPARAMETERIEXTPROC)glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_INPUT_TYPE_EXT,tsec[i].geo_in); //GL_POINTS/GL_LINES/GL_LINES_ADJACENCY/GL_TRIANGLES/GL_TRIANGLES_ADJACENCY
-		((PFNGLPROGRAMPARAMETERIEXTPROC)glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_OUTPUT_TYPE_EXT,tsec[i].geo_out); //GL_POINTS/GL_LINE_STRIP/GL_TRIANGLE_STRIP
-		((PFNGLPROGRAMPARAMETERIEXTPROC)glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_VERTICES_OUT_EXT,tsec[i].geo_nverts); //min max=1024 ?
+		((PFNGLPROGRAMPARAMETERIEXTPROC)g_glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_INPUT_TYPE_EXT,g_TSec[i].geo_in); //GL_POINTS/GL_LINES/GL_LINES_ADJACENCY/GL_TRIANGLES/GL_TRIANGLES_ADJACENCY
+		((PFNGLPROGRAMPARAMETERIEXTPROC)g_glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_OUTPUT_TYPE_EXT,g_TSec[i].geo_out); //GL_POINTS/GL_LINE_STRIP/GL_TRIANGLE_STRIP
+		((PFNGLPROGRAMPARAMETERIEXTPROC)g_glfp[glProgramParameteri])(shadprog[shadprogn],GL_GEOMETRY_VERTICES_OUT_EXT,g_TSec[i].geo_nverts); //min max=1024 ?
 	}
 
-	((PFNGLLINKPROGRAMPROC)glfp[glLinkProgram])(shadprog[shadprogn]);
-	((PFNGLGETPROGRAMIVPROC)glfp[glGetProgramiv])(shadprog[shadprogn],GL_LINK_STATUS,&i);
+	((PFNGLLINKPROGRAMPROC)g_glfp[glLinkProgram])(shadprog[shadprogn]);
+	((PFNGLGETPROGRAMIVPROC)g_glfp[glGetProgramiv])(shadprog[shadprogn],GL_LINK_STATUS,&i);
 	//NOTE:must get infolog anyway because driver doesn't consider running in SW an error.
-	((PFNGLGETINFOLOGARBPROC)glfp[glGetInfoLogARB])(shadprog[shadprogn],sizeof(tbuf),0,tbuf);
+	((PFNGLGETINFOLOGARBPROC)g_glfp[glGetInfoLogARB])(shadprog[shadprogn],sizeof(tbuf),0,tbuf);
 	j = (strstr(tbuf,"software") != 0);
 
 	if (!i || j) //the string of evil..
@@ -1293,13 +1306,13 @@ static double __cdecl setshader_int(int sh0, int sh1, int sh2)
 		return(-1.0);
 	}
 
-	((PFNGLUSEPROGRAMPROC)glfp[glUseProgram])(shadprog[shadprogn]);
+	((PFNGLUSEPROGRAMPROC)g_glfp[glUseProgram])(shadprog[shadprogn]);
 
 		//Note: Get*Uniform*() must be called after glUseProgram() to work properly
-	((PFNGLUNIFORM1IPROC)glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)glfp[glGetUniformLocation])(shadprog[shadprogn],"tex0"),0);
-	((PFNGLUNIFORM1IPROC)glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)glfp[glGetUniformLocation])(shadprog[shadprogn],"tex1"),1);
-	((PFNGLUNIFORM1IPROC)glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)glfp[glGetUniformLocation])(shadprog[shadprogn],"tex2"),2);
-	((PFNGLUNIFORM1IPROC)glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)glfp[glGetUniformLocation])(shadprog[shadprogn],"tex3"),3);
+	((PFNGLUNIFORM1IPROC)g_glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)g_glfp[glGetUniformLocation])(shadprog[shadprogn],"tex0"),0);
+	((PFNGLUNIFORM1IPROC)g_glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)g_glfp[glGetUniformLocation])(shadprog[shadprogn],"tex1"),1);
+	((PFNGLUNIFORM1IPROC)g_glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)g_glfp[glGetUniformLocation])(shadprog[shadprogn],"tex2"),2);
+	((PFNGLUNIFORM1IPROC)g_glfp[glUniform1i])(((PFNGLGETUNIFORMLOCATIONPROC)g_glfp[glGetUniformLocation])(shadprog[shadprogn],"tex3"),3);
 
 	shadprogn++;
 	return(0.0);
@@ -1315,12 +1328,12 @@ double __cdecl qglsetshader(double d)
 double __cdecl kglsetshader3(char *st0, char *st1, char *st2)
 {
 	int i, j, shi[3] = {-1,-1,-1};
-	for(i=0;i<tsecn;i++)
+	for(i=0;i<g_TSecN;i++)
 	{
-		j = ((int)tsec[i].typ)-1; if (j < 0) continue;
-		if (((j == 0) && (!_stricmp(tsec[i].nam,st0))) ||
-			 ((j == 1) && (!_stricmp(tsec[i].nam,st1))) ||
-			 ((j == 2) && (!_stricmp(tsec[i].nam,st2)))) shi[j] = tsec[i].cnt;
+		j = ((int)g_TSec[i].typ)-1; if (j < 0) continue;
+		if (((j == 0) && (!_stricmp(g_TSec[i].nam,st0))) ||
+			 ((j == 1) && (!_stricmp(g_TSec[i].nam,st1))) ||
+			 ((j == 2) && (!_stricmp(g_TSec[i].nam,st2)))) shi[j] = g_TSec[i].cnt;
 	}
 	return (setshader_int(shi[0],shi[1],shi[2]));
 }
@@ -1451,7 +1464,7 @@ static void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype)
 	{
 		case GL_TEXTURE_1D: glTexImage1D(tex[itex].tar,0,internalFormat,tex[itex].sizx,               0,format,type,0); break;
 		case GL_TEXTURE_2D: glTexImage2D(tex[itex].tar,0,internalFormat,tex[itex].sizx,tex[itex].sizy,0,format,type,0); break;
-		case GL_TEXTURE_3D: ((PFNGLTEXIMAGE3DPROC)glfp[glTexImage3D])(tex[itex].tar,0,internalFormat,tex[itex].sizx,tex[itex].sizy,tex[itex].sizz,0,format,type,0); break;
+		case GL_TEXTURE_3D: ((PFNGLTEXIMAGE3DPROC)g_glfp[glTexImage3D])(tex[itex].tar,0,internalFormat,tex[itex].sizx,tex[itex].sizy,tex[itex].sizz,0,format,type,0); break;
 		case GL_TEXTURE_CUBE_MAP:
 			for(i=0;i<6;i++) { glTexImage2D(cubemapconst[i],0,internalFormat,tex[itex].sizx,tex[itex].sizx,0,format,type,0); } break;
 	}
@@ -1462,15 +1475,15 @@ static int glastcap = 0;
 double __cdecl qglCapture(double dcaptexsiz)
 {
 	int i;
-	i = (int)dcaptexsiz; if ((i > 0) && (i <= 8192)) captexsiz = i;
+	i = (int)dcaptexsiz; if ((i > 0) && (i <= 8192)) g_CapTextSize = i;
 	i = min(oglxres,oglyres);
 
-	if (i < captexsiz) //FIXME:ugly hack; use FBO to support full requested size?
+	if (i < g_CapTextSize) //FIXME:ugly hack; use FBO to support full requested size?
 	{
-		for (captexsiz = 1; (captexsiz <<1 ) <= i; captexsiz <<= 1);
+		for (g_CapTextSize = 1; (g_CapTextSize <<1 ) <= i; g_CapTextSize <<= 1);
 	}
 
-	glViewport(0,0,captexsiz,captexsiz);
+	glViewport(0,0,g_CapTextSize,g_CapTextSize);
 
 	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluPerspective(45,1,0.1,1000.0);
 	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
@@ -1489,25 +1502,25 @@ double __cdecl kglCapture(double dtex, double xsiz, double ysiz, double dcoltype
 	itex = (int)dtex; icoltype = (int)dcoltype; if ((icoltype&15) >= KGL_NUM) icoltype &= ~15;
 	if ((xsiz < 1.0) || (ysiz < 1.0) || (xsiz*ysiz > 67108864.0)) return(-1.0);
 	xs = (int)xsiz; ys = (int)ysiz;
-	if ((!glfp[glGenFramebuffersEXT]) || (!glfp[glBindFramebufferEXT]) || (!glfp[glFramebufferTexture2DEXT]))
+	if ((!g_glfp[glGenFramebuffersEXT]) || (!g_glfp[glBindFramebufferEXT]) || (!g_glfp[glFramebufferTexture2DEXT]))
 	{
 		kputs("Sorry, this HW doesn't support glcapture(,,,,) :/",1);
 		gshadercrashed = 1; return(-1.0);
 	}
 
 	if (!gmyfb)
-		((PFNGLGENFRAMEBUFFERSEXTPROC)glfp[glGenFramebuffersEXT])(1,&gmyfb); //create FBO/offscreen framebuf
+		((PFNGLGENFRAMEBUFFERSEXTPROC)g_glfp[glGenFramebuffersEXT])(1,&gmyfb); //create FBO/offscreen framebuf
 
-	((PFNGLBINDFRAMEBUFFEREXTPROC)glfp[glBindFramebufferEXT])(GL_FRAMEBUFFER_EXT,gmyfb);
+	((PFNGLBINDFRAMEBUFFEREXTPROC)g_glfp[glBindFramebufferEXT])(GL_FRAMEBUFFER_EXT,gmyfb);
 
-	if ((tex[itex].sizx != captexsiz) || (tex[itex].sizy != captexsiz) || (tex[itex].sizz != 1) || (tex[itex].coltype != icoltype))
+	if ((tex[itex].sizx != g_CapTextSize) || (tex[itex].sizy != g_CapTextSize) || (tex[itex].sizz != 1) || (tex[itex].coltype != icoltype))
 		CreateEmptyTexture(itex,xs,ys,1,icoltype);
 
 	//tex[itex].tar = GL_TEXTURE_RECTANGLE_ARB;
 	//glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE); //necessary?
 
 	//glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	((PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)glfp[glFramebufferTexture2DEXT])(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT/*0..3*/,tex[itex].tar,itex,0);
+	((PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)g_glfp[glFramebufferTexture2DEXT])(GL_FRAMEBUFFER_EXT,GL_COLOR_ATTACHMENT0_EXT/*0..3*/,tex[itex].tar,itex,0);
 
 	glViewport(0,0,xs,ys);
 
@@ -1537,12 +1550,12 @@ double __cdecl qglEndCapture(double dtex)
 		glViewport(0,0,oglxres,oglyres);
 		glMatrixMode(GL_PROJECTION); glPopMatrix();
 		glMatrixMode(GL_MODELVIEW); glPopMatrix();
-		((PFNGLBINDFRAMEBUFFEREXTPROC)glfp[glBindFramebufferEXT])(GL_FRAMEBUFFER_EXT,0); //restore
+		((PFNGLBINDFRAMEBUFFEREXTPROC)g_glfp[glBindFramebufferEXT])(GL_FRAMEBUFFER_EXT,0); //restore
 		return(0.0);
 	}
 
-	if ((tex[itex].sizx != captexsiz) || (tex[itex].sizy != captexsiz) || (tex[itex].sizz != 1) || (tex[itex].coltype != KGL_BGRA32))
-		CreateEmptyTexture(itex,captexsiz,captexsiz,1,KGL_BGRA32);
+	if ((tex[itex].sizx != g_CapTextSize) || (tex[itex].sizy != g_CapTextSize) || (tex[itex].sizz != 1) || (tex[itex].coltype != KGL_BGRA32))
+		CreateEmptyTexture(itex,g_CapTextSize,g_CapTextSize,1,KGL_BGRA32);
 
 	glBindTexture(tex[itex].tar,(int)itex);
 	glCopyTexImage2D(tex[itex].tar,0,GL_RGBA,0,0,tex[itex].sizx,tex[itex].sizy,0);
@@ -1765,7 +1778,7 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 		break;
 
 	case GL_TEXTURE_3D:
-		((PFNGLTEXSUBIMAGE3DPROC)glfp[glTexSubImage3D])(tex[itex].tar, 0, 0, 0, 0, tex[itex].sizx, tex[itex].sizy, tex[itex].sizz, format, type, gbmp);;
+		((PFNGLTEXSUBIMAGE3DPROC)g_glfp[glTexSubImage3D])(tex[itex].tar, 0, 0, 0, 0, tex[itex].sizx, tex[itex].sizy, tex[itex].sizz, format, type, gbmp);;
 		break;
 
 	case GL_TEXTURE_CUBE_MAP:
@@ -1795,7 +1808,7 @@ double __cdecl qglBindTex(double dtex)
 double __cdecl kglActiveTex(double texunit)
 {
 	int itexunit = ((int)texunit)&3;
-	if (glfp[glActiveTexture]) ((PFNGLACTIVETEXTUREPROC)glfp[glActiveTexture])(itexunit+GL_TEXTURE0);
+	if (g_glfp[glActiveTexture]) ((PFNGLACTIVETEXTUREPROC)g_glfp[glActiveTexture])(itexunit+GL_TEXTURE0);
 	return(0);
 }
 
@@ -1819,16 +1832,16 @@ double ksetfov(double fov) { gfov = tan(fov*PI/360.0)*atan((float)oglyres/(float
 ///////////////////////////////////////////////////////////////////////////////
 double kglProgramLocalParam(double ind, double a, double b, double c, double d)
 {
-	((PFNGLPROGRAMLOCALPARAMETER4FARBPROC)glfp[glProgramLocalParameter4fARB])(GL_VERTEX_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
-	((PFNGLPROGRAMLOCALPARAMETER4FARBPROC)glfp[glProgramLocalParameter4fARB])(GL_FRAGMENT_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
+	((PFNGLPROGRAMLOCALPARAMETER4FARBPROC)g_glfp[glProgramLocalParameter4fARB])(GL_VERTEX_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
+	((PFNGLPROGRAMLOCALPARAMETER4FARBPROC)g_glfp[glProgramLocalParameter4fARB])(GL_FRAGMENT_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
 	return(0.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 double kglProgramEnvParam(double ind, double a, double b, double c, double d)
 {
-	((PFNGLPROGRAMENVPARAMETER4FARBPROC)glfp[glProgramEnvParameter4fARB])(GL_VERTEX_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
-	((PFNGLPROGRAMENVPARAMETER4FARBPROC)glfp[glProgramEnvParameter4fARB])(GL_FRAGMENT_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
+	((PFNGLPROGRAMENVPARAMETER4FARBPROC)g_glfp[glProgramEnvParameter4fARB])(GL_VERTEX_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
+	((PFNGLPROGRAMENVPARAMETER4FARBPROC)g_glfp[glProgramEnvParameter4fARB])(GL_FRAGMENT_PROGRAM_ARB,(unsigned)ind,a,b,c,d);
 	return(0.0);
 }
 
@@ -1836,19 +1849,19 @@ double kglProgramEnvParam(double ind, double a, double b, double c, double d)
 double kglGetUniformLoc(char *shadvarnam)
 {
 	int i;
-	i = ((PFNGLGETUNIFORMLOCATIONPROC)glfp[glGetUniformLocation])(shadprog[gcurshader],shadvarnam);
+	i = ((PFNGLGETUNIFORMLOCATIONPROC)g_glfp[glGetUniformLocation])(shadprog[gcurshader],shadvarnam);
 	return((double)i);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglUniform1f(double sh, double v0)                                  { ((PFNGLUNIFORM1FPROC)glfp[glUniform1f])((int)sh,(float)v0);                               return(0.0); }
-double kglUniform2f(double sh, double v0, double v1)                       { ((PFNGLUNIFORM2FPROC)glfp[glUniform2f])((int)sh,(float)v0,(float)v1);                     return(0.0); }
-double kglUniform3f(double sh, double v0, double v1, double v2)            { ((PFNGLUNIFORM3FPROC)glfp[glUniform3f])((int)sh,(float)v0,(float)v1,(float)v2);           return(0.0); }
-double kglUniform4f(double sh, double v0, double v1, double v2, double v3) { ((PFNGLUNIFORM4FPROC)glfp[glUniform4f])((int)sh,(float)v0,(float)v1,(float)v2,(float)v3); return(0.0); }
-double kglUniform1i(double sh, double v0)                                  { ((PFNGLUNIFORM1IPROC)glfp[glUniform1i])((int)sh,(int)v0);                                 return(0.0); }
-double kglUniform2i(double sh, double v0, double v1)                       { ((PFNGLUNIFORM2IPROC)glfp[glUniform2i])((int)sh,(int)v0,(int)v1);                         return(0.0); }
-double kglUniform3i(double sh, double v0, double v1, double v2)            { ((PFNGLUNIFORM3IPROC)glfp[glUniform3i])((int)sh,(int)v0,(int)v1,(int)v2);                 return(0.0); }
-double kglUniform4i(double sh, double v0, double v1, double v2, double v3) { ((PFNGLUNIFORM4IPROC)glfp[glUniform4i])((int)sh,(int)v0,(int)v1,(int)v2,(int)v3);         return(0.0); }
+double kglUniform1f(double sh, double v0)                                  { ((PFNGLUNIFORM1FPROC)g_glfp[glUniform1f])((int)sh,(float)v0);                               return(0.0); }
+double kglUniform2f(double sh, double v0, double v1)                       { ((PFNGLUNIFORM2FPROC)g_glfp[glUniform2f])((int)sh,(float)v0,(float)v1);                     return(0.0); }
+double kglUniform3f(double sh, double v0, double v1, double v2)            { ((PFNGLUNIFORM3FPROC)g_glfp[glUniform3f])((int)sh,(float)v0,(float)v1,(float)v2);           return(0.0); }
+double kglUniform4f(double sh, double v0, double v1, double v2, double v3) { ((PFNGLUNIFORM4FPROC)g_glfp[glUniform4f])((int)sh,(float)v0,(float)v1,(float)v2,(float)v3); return(0.0); }
+double kglUniform1i(double sh, double v0)                                  { ((PFNGLUNIFORM1IPROC)g_glfp[glUniform1i])((int)sh,(int)v0);                                 return(0.0); }
+double kglUniform2i(double sh, double v0, double v1)                       { ((PFNGLUNIFORM2IPROC)g_glfp[glUniform2i])((int)sh,(int)v0,(int)v1);                         return(0.0); }
+double kglUniform3i(double sh, double v0, double v1, double v2)            { ((PFNGLUNIFORM3IPROC)g_glfp[glUniform3i])((int)sh,(int)v0,(int)v1,(int)v2);                 return(0.0); }
+double kglUniform4i(double sh, double v0, double v1, double v2, double v3) { ((PFNGLUNIFORM4IPROC)g_glfp[glUniform4i])((int)sh,(int)v0,(int)v1,(int)v2,(int)v3);         return(0.0); }
 
 ///////////////////////////////////////////////////////////////////////////////
 #define MAXUNIFVALNUM 4096
@@ -1858,7 +1871,7 @@ double kglUniform1fv(double sh, double num, double *vals)
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for(i=0;i<inum;i++) fvals[i] = (float)vals[i];
-	((PFNGLUNIFORM1FVPROC)glfp[glUniform1fv])((int)sh,inum,fvals);
+	((PFNGLUNIFORM1FVPROC)g_glfp[glUniform1fv])((int)sh,inum,fvals);
 	return(0.0);
 }
 
@@ -1869,7 +1882,7 @@ double kglUniform2fv(double sh, double num, double *vals)
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for(i=0;i<inum;i++) fvals[i] = (float)vals[i];
-	((PFNGLUNIFORM2FVPROC)glfp[glUniform2fv])((int)sh,inum,fvals);
+	((PFNGLUNIFORM2FVPROC)g_glfp[glUniform2fv])((int)sh,inum,fvals);
 	return(0.0);
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -1879,7 +1892,7 @@ double kglUniform3fv(double sh, double num, double *vals)
 	inum = min((int)num, MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for (i = 0; i < inum; i++) fvals[i] = (float)vals[i];
-	((PFNGLUNIFORM3FVPROC)glfp[glUniform3fv])((int)sh, inum, fvals);
+	((PFNGLUNIFORM3FVPROC)g_glfp[glUniform3fv])((int)sh, inum, fvals);
 	return(0.0);
 }
 
@@ -1890,7 +1903,7 @@ double kglUniform4fv(double sh, double num, double *vals)
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for(i=0;i<inum;i++) fvals[i] = (float)vals[i];
-	((PFNGLUNIFORM4FVPROC)glfp[glUniform4fv])((int)sh,inum,fvals);
+	((PFNGLUNIFORM4FVPROC)g_glfp[glUniform4fv])((int)sh,inum,fvals);
 	return(0.0);
 }
 
@@ -1901,7 +1914,7 @@ double kglUniform1iv(double sh, double num, double* vals)
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	ivals = (int *)_alloca(inum*sizeof(ivals[0])); if (!ivals) return(0.0);
 	for(i=0;i<inum;i++) ivals[i] = (int)vals[i];
-	((PFNGLUNIFORM1IVPROC)glfp[glUniform1iv])((int)sh,inum,ivals);
+	((PFNGLUNIFORM1IVPROC)g_glfp[glUniform1iv])((int)sh,inum,ivals);
 	return(0.0);
 }
 
@@ -1924,7 +1937,7 @@ double kglUniform2iv(double sh, double num, double* vals)
 	for (i = 0; i < inum; i++)
 		ivals[i] = (int)vals[i];
 
-	((PFNGLUNIFORM2IVPROC)glfp[glUniform2iv])((int)sh, inum, ivals);
+	((PFNGLUNIFORM2IVPROC)g_glfp[glUniform2iv])((int)sh, inum, ivals);
 	return 0.0;
 }
 
@@ -1947,7 +1960,7 @@ double kglUniform3iv(double sh, double num, double* vals)
 	for (i = 0; i < inum; i++)
 		ivals[i] = (int)vals[i];
 
-	((PFNGLUNIFORM3IVPROC)glfp[glUniform3iv])((int)sh, inum, ivals);
+	((PFNGLUNIFORM3IVPROC)g_glfp[glUniform3iv])((int)sh, inum, ivals);
 	return 0.0;
 }
 
@@ -1970,7 +1983,7 @@ double kglUniform4iv(double sh, double num, double* vals)
 	for (i = 0; i < inum; i++)
 		ivals[i] = (int)vals[i];
 
-	((PFNGLUNIFORM4IVPROC)glfp[glUniform4iv])((int)sh, inum, ivals);
+	((PFNGLUNIFORM4IVPROC)g_glfp[glUniform4iv])((int)sh, inum, ivals);
 	return 0.0;
 }
 
@@ -1978,15 +1991,15 @@ double kglUniform4iv(double sh, double num, double* vals)
 double kglGetAttribLoc(char *shadvarnam)
 {
 	int i;
-	i = ((PFNGLGETATTRIBLOCATIONPROC)glfp[glGetAttribLocation])(shadprog[gcurshader], shadvarnam);
+	i = ((PFNGLGETATTRIBLOCATIONPROC)g_glfp[glGetAttribLocation])(shadprog[gcurshader], shadvarnam);
 	return((double)i);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double kglVertexAttrib1f(double sh, double v0)                                  { ((PFNGLVERTEXATTRIB1FPROC)glfp[glVertexAttrib1f])((int)sh,(float)v0);                               return(0.0); }
-double kglVertexAttrib2f(double sh, double v0, double v1)                       { ((PFNGLVERTEXATTRIB2FPROC)glfp[glVertexAttrib2f])((int)sh,(float)v0,(float)v1);                     return(0.0); }
-double kglVertexAttrib3f(double sh, double v0, double v1, double v2)            { ((PFNGLVERTEXATTRIB3FPROC)glfp[glVertexAttrib3f])((int)sh,(float)v0,(float)v1,(float)v2);           return(0.0); }
-double kglVertexAttrib4f(double sh, double v0, double v1, double v2, double v3) { ((PFNGLVERTEXATTRIB4FPROC)glfp[glVertexAttrib4f])((int)sh,(float)v0,(float)v1,(float)v2,(float)v3); return(0.0); }
+double kglVertexAttrib1f(double sh, double v0)                                  { ((PFNGLVERTEXATTRIB1FPROC)g_glfp[glVertexAttrib1f])((int)sh,(float)v0);                               return(0.0); }
+double kglVertexAttrib2f(double sh, double v0, double v1)                       { ((PFNGLVERTEXATTRIB2FPROC)g_glfp[glVertexAttrib2f])((int)sh,(float)v0,(float)v1);                     return(0.0); }
+double kglVertexAttrib3f(double sh, double v0, double v1, double v2)            { ((PFNGLVERTEXATTRIB3FPROC)g_glfp[glVertexAttrib3f])((int)sh,(float)v0,(float)v1,(float)v2);           return(0.0); }
+double kglVertexAttrib4f(double sh, double v0, double v1, double v2, double v3) { ((PFNGLVERTEXATTRIB4FPROC)g_glfp[glVertexAttrib4f])((int)sh,(float)v0,(float)v1,(float)v2,(float)v3); return(0.0); }
 
 ///////////////////////////////////////////////////////////////////////////////
 double kglCullFace(double mode)
@@ -2029,7 +2042,7 @@ double mysleep(double ms)
 ///////////////////////////////////////////////////////////////////////////////
 double glswapinterval(double val)
 {
-	((PFNWGLSWAPINTERVALEXTPROC)glfp[wglSwapIntervalEXT])((int)val);
+	((PFNWGLSWAPINTERVALEXTPROC)g_glfp[wglSwapIntervalEXT])((int)val);
 	return 0.0;
 }
 
@@ -2040,11 +2053,11 @@ double glklockstart(double _)
 	if (supporttimerquery)
 	{
 		if (ginstartklock)
-			((PFNGLENDQUERYPROC)glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
+			((PFNGLENDQUERYPROC)g_glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
 		else
 			ginstartklock = 1;
 
-		((PFNGLBEGINQUERYPROC)glfp[glBeginQuery])(GL_TIME_ELAPSED_EXT, queries[0]);
+		((PFNGLBEGINQUERYPROC)g_glfp[glBeginQuery])(GL_TIME_ELAPSED_EXT, queries[0]);
 	}
 
 	return 0.0;
@@ -2064,21 +2077,21 @@ double glklockelapsed(double _)
 		return -2.0;
 
 	ginstartklock = 0;
-	((PFNGLENDQUERYPROC)glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
+	((PFNGLENDQUERYPROC)g_glfp[glEndQuery])(GL_TIME_ELAPSED_EXT);
 
 	do
 	{
-		((PFNGLGETQUERYOBJECTIVPROC)glfp[glGetQueryObjectiv])(queries[0], GL_QUERY_RESULT_AVAILABLE, &got);
+		((PFNGLGETQUERYOBJECTIVPROC)g_glfp[glGetQueryObjectiv])(queries[0], GL_QUERY_RESULT_AVAILABLE, &got);
 	}
 	while (!got);
 
-	if (glfp[glGetQueryObjectui64vEXT])
+	if (g_glfp[glGetQueryObjectui64vEXT])
 	{
-		((PFNGLGETQUERYOBJECTUI64VEXTPROC)glfp[glGetQueryObjectui64vEXT])(queries[0], GL_QUERY_RESULT, &qdtim);
+		((PFNGLGETQUERYOBJECTUI64VEXTPROC)g_glfp[glGetQueryObjectui64vEXT])(queries[0], GL_QUERY_RESULT, &qdtim);
 		return(((double)qdtim)*1e-9);
 	}
 
-	((PFNGLGETQUERYOBJECTUIVPROC)glfp[glGetQueryObjectuiv])(queries[0], GL_QUERY_RESULT, &dtim);
+	((PFNGLGETQUERYOBJECTUIVPROC)g_glfp[glGetQueryObjectuiv])(queries[0], GL_QUERY_RESULT, &dtim);
 	return(((double)dtim)*1e-9);
 }
 
@@ -2341,7 +2354,7 @@ static int txt2sec(char* t, tsec_t *ltsec)
 
 	n++;
 
-	return(n);
+	return n;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2351,44 +2364,74 @@ static void glsl_geterrorlines(char* error, int offs)
 
 	for (i = 0; error[i]; i++)
 	{
-		if (i && error[i-1] != '\n') continue; // Check only at beginning of lines
+		if (i > 0 && error[i-1] != '\n') // Check only at beginning of lines
+			continue;
 
 		if (!memcmp(&error[i], "0(",2)) // NVIDIA style
 		{
-			j = atol(&error[i + 2]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
+			j = atol(&error[i + 2]) - 1;
+
+			if ((unsigned)j >= (unsigned)g_TextSize)
+				continue;
+
+			j += offs;
+			g_Badlinebits[j >> 3] |= (1 << (j & 7));
 		}
 		else if (!memcmp(&error[i], "(",1)) // NVIDIA style (old)
 		{
-			j = atol(&error[i + 1]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
+			j = atol(&error[i + 1]) - 1;
+
+			if ((unsigned)j >= (unsigned)g_TextSize)
+				continue;
+
+			j += offs;
+			g_Badlinebits[j >> 3] |= (1 << (j & 7));
 		}
-		else if (!memcmp(&error[i], "ERROR: ",7)) // ATI(AMD)/Intel style
+		else if (!memcmp(&error[i], "ERROR: ", 7)) // ATI(AMD)/Intel style
 		{
 			i += 7;
-			if (!((error[i] >= '0') && (error[i] <= '9'))) { continue; } i++;
-			while ((error[i] >= '0') && (error[i] <= '9')) i++;
-			if (error[i] != ':') { continue; } i++;
-			j = atol(&error[i]) - 1; if ((unsigned)j >= (unsigned)textsiz) continue;
-			j += offs; badlinebits[j >> 3] |= (1 << (j & 7));
+
+			if (!(error[i] >= '0' && error[i] <= '9'))
+				continue;
+
+			i++;
+
+			while (error[i] >= '0' && error[i] <= '9')
+				i++;
+
+			if (error[i] != ':')
+				continue;
+
+			i++;
+
+			j = atol(&error[i]) - 1;
+
+			if ((unsigned)j >= (unsigned)g_TextSize)
+				continue;
+
+			j += offs;
+			g_Badlinebits[j >> 3] |= (1 << (j & 7));
 		}
 	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-extern void updatelines(int);
+//extern void updatelines(int);
 
 static void setShaders(HWND h, HWND hWndEdit)
 {
 	static const char shadnam[3][5] = { "vert", "geom", "frag" };
 	static const int shadconst[3] = { GL_VERTEX_SHADER, GL_GEOMETRY_SHADER_EXT, GL_FRAGMENT_SHADER };
-	int i, j, k, compiled, needloop = 0, needrecompile, tseci;
+	int i, j, k, compiled, needloop = 0;
+	int needrecompile;
+	int tseci;
 	char ch;
 	char* cptr;
 	char tbuf[4096];
 	const char* erst;
 
-	if (gshaderstuck) return;
+	if (gshaderstuck)
+		return;
 
 #if 0
 	if (dkeystatus[0x2a]) //debug only!
@@ -2414,25 +2457,25 @@ static void setShaders(HWND h, HWND hWndEdit)
 	{
 		needrecompile = 0;
 
-		for(tseci = 0; tseci < tsecn; tseci++)
+		for(tseci = 0; tseci < g_TSecN; tseci++)
 		{
 			//Compare block
-			if (!tsec[tseci].typ)
+			if (!g_TSec[tseci].typ)
 				continue;
 
-			if ((tseci >= otsecn) || (tsec[tseci].typ != otsec[tseci].typ))
+			if ((tseci >= g_OTSecN) || (g_TSec[tseci].typ != g_OTSec[tseci].typ))
 			{
 				needrecompile = 1;
 				break;
 			}
 
-			if (tsec[tseci].i1-tsec[tseci].i0 != otsec[tseci].i1-otsec[tseci].i0)
+			if (g_TSec[tseci].i1-g_TSec[tseci].i0 != g_OTSec[tseci].i1-g_OTSec[tseci].i0)
 			{
 				needrecompile = 1;
 				break;
 			}
 
-			if (memcmp(&text[tsec[tseci].i0],&otext[otsec[tseci].i0],tsec[tseci].i1-tsec[tseci].i0))
+			if (memcmp(&g_Text[g_TSec[tseci].i0],&g_OText[g_OTSec[tseci].i0],g_TSec[tseci].i1-g_TSec[tseci].i0))
 			{
 				needrecompile = 1;
 				break;
@@ -2443,16 +2486,16 @@ static void setShaders(HWND h, HWND hWndEdit)
 	if (!needrecompile)
 		return;
 
-	memset(badlinebits, 0, (textsiz + 7) >> 3);
+	memset(g_Badlinebits, 0, (g_TextSize + 7) >> 3);
 
 	if (usearbasm || usearbasmonly)
 	{
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB, 0);
-		((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB, 0);
+		((PFNGLBINDPROGRAMARBPROC)g_glfp[glBindProgramARB])(GL_FRAGMENT_PROGRAM_ARB, 0);
+		((PFNGLBINDPROGRAMARBPROC)g_glfp[glBindProgramARB])(GL_VERTEX_PROGRAM_ARB, 0);
 		for (i = 0; i <= 2; i += 2)
 		{
 			for (; shadn[i] > 0; shadn[i]--)
-				((PFNGLDELETEPROGRAMSARBPROC)glfp[glDeleteProgramsARB])(1, (const GLuint*)&shad[i][shadn[i] - 1]);
+				((PFNGLDELETEPROGRAMSARBPROC)g_glfp[glDeleteProgramsARB])(1, (const GLuint*)&shad[i][shadn[i] - 1]);
 		}
 	}
 	else
@@ -2463,16 +2506,16 @@ static void setShaders(HWND h, HWND hWndEdit)
 		for (i = 0; i < 3; i++)
 		{
 			for (; shadn[i] > 0; shadn[i]--)
-				((PFNGLDELETESHADERPROC)glfp[glDeleteShader])(shad[i][shadn[i] - 1]);
+				((PFNGLDELETESHADERPROC)g_glfp[glDeleteShader])(shad[i][shadn[i] - 1]);
 		}
 
 		for(; shadprogn > 0; shadprogn--)
-			((PFNGLDELETEPROGRAMPROC)glfp[glDeleteProgram])(shadprog[shadprogn - 1]);
+			((PFNGLDELETEPROGRAMPROC)g_glfp[glDeleteProgram])(shadprog[shadprogn - 1]);
 	}
 
-	for(tseci = 0; tseci < tsecn; tseci++)
+	for(tseci = 0; tseci < g_TSecN; tseci++)
 	{
-		if (!tsec[tseci].typ)
+		if (!g_TSec[tseci].typ)
 			continue;
 
 		//Compare block
@@ -2481,27 +2524,27 @@ static void setShaders(HWND h, HWND hWndEdit)
 		//else if (memcmp(&text[tsec[tseci].i0],&otext[otsec[tseci].i0],tsec[tseci].i1-tsec[tseci].i0)) needrecompile = 1;
 		//else needrecompile = 0;
 
-		j = tsec[tseci].typ-1;
+		j = g_TSec[tseci].typ - 1;
 
-		if ((text[tsec[tseci].i0] == '!' && text[tsec[tseci].i0+1] == '!') || usearbasmonly)
+		if ((g_Text[g_TSec[tseci].i0] == '!' && g_Text[g_TSec[tseci].i0+1] == '!') || usearbasmonly)
 		{
 			if ((!usearbasm) && (!usearbasmonly))
-				((PFNGLUSEPROGRAMPROC)glfp[glUseProgram])(0);
+				((PFNGLUSEPROGRAMPROC)g_glfp[glUseProgram])(0);
 
 			usearbasm = 1;
 			glGetError(); //flush errors (could be from script)
 
-			if (tsec[tseci].nam[0])
-				sprintf(tbuf, "compile %s_asm %s", shadnam[j], tsec[tseci].nam);
+			if (g_TSec[tseci].nam[0])
+				sprintf(tbuf, "compile %s_asm %s", shadnam[j], g_TSec[tseci].nam);
 			else
-				sprintf(tbuf, "compile %s_asm#%d", shadnam[j], tsec[tseci].cnt);
+				sprintf(tbuf, "compile %s_asm#%d", shadnam[j], g_TSec[tseci].cnt);
 
-			if (tsec[tseci].typ&1)
+			if (g_TSec[tseci].typ&1)
 				kputs(tbuf, 1);
 
-			if (tsec[tseci].typ == 1)
+			if (g_TSec[tseci].typ == 1)
 				i = GL_VERTEX_PROGRAM_ARB;
-			else if (tsec[tseci].typ == 3)
+			else if (g_TSec[tseci].typ == 3)
 				i = GL_FRAGMENT_PROGRAM_ARB;
 			else
 				i = 0;
@@ -2509,24 +2552,24 @@ static void setShaders(HWND h, HWND hWndEdit)
 			if (i)
 			{
 				glEnable(i);
-				((PFNGLGENPROGRAMSARBPROC)glfp[glGenProgramsARB])(1, (GLuint*)&j);
-				((PFNGLBINDPROGRAMARBPROC)glfp[glBindProgramARB])(i, j);
+				((PFNGLGENPROGRAMSARBPROC)g_glfp[glGenProgramsARB])(1, (GLuint*)&j);
+				((PFNGLBINDPROGRAMARBPROC)g_glfp[glBindProgramARB])(i, j);
 
 				if (i == GL_VERTEX_PROGRAM_ARB)
 					shad[0][shadn[0]] = j;
 				else
 					shad[2][shadn[2]] = j;
 
-				((PFNGLPROGRAMSTRINGARBPROC)glfp[glProgramStringARB])(i, GL_PROGRAM_FORMAT_ASCII_ARB, tsec[tseci].i1 - tsec[tseci].i0, &text[tsec[tseci].i0]);
+				((PFNGLPROGRAMSTRINGARBPROC)g_glfp[glProgramStringARB])(i, GL_PROGRAM_FORMAT_ASCII_ARB, g_TSec[tseci].i1 - g_TSec[tseci].i0, &g_Text[g_TSec[tseci].i0]);
 
 				if (glGetError() != GL_NO_ERROR)
 				{
 					erst = (const char*) glGetString(GL_PROGRAM_ERROR_STRING_ARB);
 					kputs(erst,1);
 
-					for(j = 0; erst[j]; j++)
+					for (j = 0; erst[j]; j++)
 					{
-						if ((j) && (erst[j-1] != '\n'))
+						if (j && erst[j-1] != '\n')
 							continue;
 
 						if (!_memicmp(&erst[j], "line ", 5))
@@ -2536,16 +2579,16 @@ static void setShaders(HWND h, HWND hWndEdit)
 						else
 							continue;
 
-						if ((unsigned)k < (unsigned)textsiz)
-							badlinebits[(tsec[tseci].linofs + k) >> 3] |= (1 << ((tsec[tseci].linofs + k) & 7));
+						if ((unsigned)k < (unsigned)g_TextSize)
+							g_Badlinebits[(g_TSec[tseci].linofs + k) >> 3] |= (1 << ((g_TSec[tseci].linofs + k) & 7));
 					}
 
-					updatelines(1);
+					//updatelines(1);
 					return;
 				}
 			}
 		}
-		else if (j == 1 && !glfp[glProgramParameteri])
+		else if (j == 1 && !g_glfp[glProgramParameteri])
 		{
 			kputs("ERROR: Geometry shader not supported by this hardware :/",1);
 		}
@@ -2553,42 +2596,43 @@ static void setShaders(HWND h, HWND hWndEdit)
 		{
 			usearbasm = 0;
 
-			if (tsec[tseci].nam[0])
-				sprintf(tbuf, "compile %s %s", shadnam[j], tsec[tseci].nam);
+			if (g_TSec[tseci].nam[0])
+				sprintf(tbuf, "compile %s %s", shadnam[j], g_TSec[tseci].nam);
 			else
-				sprintf(tbuf, "compile %s#%d", shadnam[j], tsec[tseci].cnt);
+				sprintf(tbuf, "compile %s#%d", shadnam[j], g_TSec[tseci].cnt);
 
 			kputs(tbuf, 1);
 
 			if (j == 1)
-				geo2blocki[tsec[tseci].cnt] = tseci; //map shader to block for geometry (to access geo_in, geo_out, geo_nverts)
+				geo2blocki[g_TSec[tseci].cnt] = tseci; //map shader to block for geometry (to access geo_in, geo_out, geo_nverts)
 
-			i = ((PFNGLCREATESHADERPROC)(glfp[glCreateShader]))(shadconst[j]);
+			i = ((PFNGLCREATESHADERPROC)(g_glfp[glCreateShader]))(shadconst[j]);
 			shad[j][shadn[j]] = i;
-			cptr = &text[tsec[tseci].i0];
-			ch = text[tsec[tseci].i1];
-			text[tsec[tseci].i1] = 0;
-			((PFNGLSHADERSOURCEPROC)glfp[glShaderSource])(i, 1, (const GLchar**)&cptr, 0);
-			text[tsec[tseci].i1] = ch;
+			cptr = &g_Text[g_TSec[tseci].i0];
+			ch = g_Text[g_TSec[tseci].i1];
+			g_Text[g_TSec[tseci].i1] = 0;
+			((PFNGLSHADERSOURCEPROC)g_glfp[glShaderSource])(i, 1, (const GLchar**)&cptr, 0);
+			g_Text[g_TSec[tseci].i1] = ch;
 
-			((PFNGLCOMPILESHADERPROC)glfp[glCompileShader])(i);
-			((PFNGLGETSHADERIVPROC)glfp[glGetShaderiv])(i,GL_COMPILE_STATUS,&compiled);
+			((PFNGLCOMPILESHADERPROC)g_glfp[glCompileShader])(i);
+			((PFNGLGETSHADERIVPROC)g_glfp[glGetShaderiv])(i, GL_COMPILE_STATUS, &compiled);
 
 			if (!compiled)
 			{
-				((PFNGLGETINFOLOGARBPROC)glfp[glGetInfoLogARB])(i,sizeof(tbuf),0,tbuf); kputs(tbuf,1);
-				glsl_geterrorlines(tbuf,tsec[tseci].linofs);
-				updatelines(1);
+				((PFNGLGETINFOLOGARBPROC)g_glfp[glGetInfoLogARB])(i, sizeof(tbuf), 0, tbuf);
+				kputs(tbuf, 1);
+				glsl_geterrorlines(tbuf, g_TSec[tseci].linofs);
+				//updatelines(1);
 				return;
 			}
 		}
 
-		shadn[tsec[tseci].typ-1]++;
+		shadn[g_TSec[tseci].typ-1]++;
 	}
 
 	gcurshader = 0;
 	setshader_int(0,-1,0);
-	updatelines(1);
+	//updatelines(1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2820,20 +2864,20 @@ static void Draw(HWND hWnd, HWND hWndEdit)
 	char ch;
 
 	// Find host block (use only last one if multiple found)
-	for (tseci = 0; tsec[tseci].typ; tseci++)
+	for (tseci = 0; g_TSec[tseci].typ; tseci++)
 	{
-		if (tseci >= tsecn)
+		if (tseci >= g_TSecN)
 			return;
 	}
 
-	while (tsec[tseci].nxt >= 0)
-		tseci = tsec[tseci].nxt;
+	while (g_TSec[tseci].nxt >= 0)
+		tseci = g_TSec[tseci].nxt;
 
-	if ((tseci >= otsecn) || (otsec[tseci].typ) || (otsec[tseci].nxt >= 0))
+	if ((tseci >= g_OTSecN) || (g_OTSec[tseci].typ) || (g_OTSec[tseci].nxt >= 0))
 		needrecompile = 1;
-	else if (tsec[tseci].i1-tsec[tseci].i0 != otsec[tseci].i1-otsec[tseci].i0)
+	else if (g_TSec[tseci].i1-g_TSec[tseci].i0 != g_OTSec[tseci].i1-g_OTSec[tseci].i0)
 		needrecompile = 1;
-	else if (memcmp(&text[tsec[tseci].i0],&otext[otsec[tseci].i0],tsec[tseci].i1-tsec[tseci].i0))
+	else if (memcmp(&g_Text[g_TSec[tseci].i0],&g_OText[g_OTSec[tseci].i0],g_TSec[tseci].i1-g_TSec[tseci].i0))
 		needrecompile = 1;
 	else
 		needrecompile = 0;
@@ -2864,10 +2908,10 @@ static void Draw(HWND hWnd, HWND hWndEdit)
 
 		kasm87addext(myext, sizeof(myext) / sizeof(myext[0]));
 
-		ch = text[tsec[tseci].i1];
-		text[tsec[tseci].i1] = 0;
-		gevalfunc = (double (__cdecl*)()) kasm87(&text[tsec[tseci].i0]);
-		text[tsec[tseci].i1] = ch;
+		ch = g_Text[g_TSec[tseci].i1];
+		g_Text[g_TSec[tseci].i1] = 0;
+		gevalfunc = (double (__cdecl*)()) kasm87(&g_Text[g_TSec[tseci].i0]);
+		g_Text[g_TSec[tseci].i1] = ch;
 		gevalfuncleng = kasm87leng;
 
 		//NOTE: use tsec[tseci].linofs as offset when adding support for line of error
@@ -2942,9 +2986,9 @@ static void Draw(HWND hWnd, HWND hWndEdit)
 
 				if (ConnectNamedPipe(hpipe, 0))
 				{
-					u = strlen(text);
+					u = strlen(g_Text);
 
-					if (!WriteFile(hpipe, text, u, &u, 0))
+					if (!WriteFile(hpipe, g_Text, u, &u, 0))
 					{
 						kputs("WriteFile failed", 1);
 						return;
@@ -2987,9 +3031,9 @@ static int passasksave()
 	if (!SendMessage(hWndEdit, EM_GETMODIFY, 0, 0))
 		return 1;
 
-	switch (MessageBox(ghwnd, "Save changes?", prognam, MB_YESNOCANCEL))
+	switch (MessageBox(g_HWnd, "Save changes?", g_ProgramName, MB_YESNOCANCEL))
 	{
-		case IDYES: SaveFile(ghwnd); return 1;
+		case IDYES: SaveFile(g_HWnd); return 1;
 		case IDNO: return 1;
 		case IDCANCEL: break;
 	}
@@ -3027,18 +3071,18 @@ static void Load(char* filename, HWND hWndEdit)
 
 				if (i < j)
 				{
-					text[leng] = 13;
-					text[leng+1] = 10;
+					g_Text[leng] = 13;
+					g_Text[leng+1] = 10;
 					leng += 2;
 				}
 
 				if (i)
 					continue;
 
-				text[leng] = k; leng++;
+				g_Text[leng] = k; leng++;
 			}
 
-			text[leng] = 0;
+			g_Text[leng] = 0;
 			fileformat = 3;
 		}
 		else
@@ -3069,23 +3113,23 @@ static void Load(char* filename, HWND hWndEdit)
 				fileformat = 2;
 		}
 
-		switch(fileformat)
+		switch (fileformat)
 		{
 			case 0:
 				buf = (char*)malloc(65536);
 				fread(buf, 1, 65536, fil); // vertex,fragment,eval
-				sprintf(text, "%s\r\n\r\n@v: //================================\r\n\r\n%s\r\n\r\n@f: //================================\r\n\r\n%s", &buf[32768], &buf[0], &buf[16384]);
+				sprintf(g_Text, "%s\r\n\r\n@v: //================================\r\n\r\n%s\r\n\r\n@f: //================================\r\n\r\n%s", &buf[32768], &buf[0], &buf[16384]);
 
-				for (i = 0; text[i]; i++)
+				for (i = 0; g_Text[i]; i++)
 				{
-					if (text[i] > 32)
+					if (g_Text[i] > 32)
 						break;
 				}
 
-				if (text[i] == '{') // Hack attempting to fix many scripts that lack () at beginning
+				if (g_Text[i] == '{') // Hack attempting to fix many scripts that lack () at beginning
 				{
-					memmove(&text[2], text, strlen(text) + 1);
-					text[0] = '('; text[1] = ')';
+					memmove(&g_Text[2], g_Text, strlen(g_Text) + 1);
+					g_Text[0] = '('; g_Text[1] = ')';
 				}
 
 				free(buf);
@@ -3099,13 +3143,13 @@ static void Load(char* filename, HWND hWndEdit)
 				j = strlen(&buf[i]) + 1; ind[1] = i; i += j;
 				j = strlen(&buf[i]) + 1; ind[2] = i; i += j;
 				j = strlen(&buf[i]) + 1; ind[3] = i; i += j;
-				sprintf(text,"%s\r\n\r\n@v: //================================\r\n\r\n%s\r\n\r\n@f: //================================\r\n\r\n%s",&buf[ind[2]],&buf[ind[0]],&buf[ind[1]]);
+				sprintf(g_Text,"%s\r\n\r\n@v: //================================\r\n\r\n%s\r\n\r\n@f: //================================\r\n\r\n%s",&buf[ind[2]],&buf[ind[0]],&buf[ind[1]]);
 				free(buf);
 				break;
 
 			case 2:
-				fread(text, 1, leng, fil);
-				text[leng] = 0;
+				fread(g_Text, 1, leng, fil);
+				g_Text[leng] = 0;
 				break;
 
 			case 3: // same as format 2, but for pipe
@@ -3151,7 +3195,7 @@ static void Load(char* filename, HWND hWndEdit)
 		}
 		*/
 
-		SetWindowText(hWndEdit, text);
+		SetWindowText(hWndEdit, g_Text);
 	}
 
 	//otext[0] = text[0]^1; otext[1] = 0; //force recompile and reset time
@@ -3159,12 +3203,12 @@ static void Load(char* filename, HWND hWndEdit)
 	kglActiveTex(0.0);
 	qglBindTex(0.0);
 	ksetfov(90.0);
-	captexsiz = 512;
+	g_CapTextSize = 512;
 	dorecompile = 3;
 	glLineWidth(1.0f);
 
-	if (glfp[wglSwapIntervalEXT])
-		((PFNWGLSWAPINTERVALEXTPROC)glfp[wglSwapIntervalEXT])(1);
+	if (g_glfp[wglSwapIntervalEXT])
+		((PFNWGLSWAPINTERVALEXTPROC)g_glfp[wglSwapIntervalEXT])(1);
 
 	{
 		char tbuf[512];
@@ -3172,11 +3216,12 @@ static void Load(char* filename, HWND hWndEdit)
 		kputs(tbuf, 1);
 	}
 
-	updatelines(1);
+	//updatelines(1);
 	SendMessage(hWndEdit, EM_SETMODIFY, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/*
 static void updatelines(int force)
 {
 	static int firstvisline = 0;
@@ -3189,7 +3234,7 @@ static void updatelines(int force)
 
 	firstvisline = lin;
 
-	GetWindowText(hWndEdit, ttext, textsiz);
+	GetWindowText(hWndEdit, g_TText, g_TextSize);
 
 	j = 0;
 	k = 1;
@@ -3197,10 +3242,10 @@ static void updatelines(int force)
 
 	for (i = 0; true; i++)
 	{
-		if (ttext[i] == '@' && (!i || ttext[i-1] == '\r' || ttext[i-1] == '\n'))
+		if (g_TText[i] == '@' && (!i || g_TText[i-1] == '\r' || g_TText[i-1] == '\n'))
 			k = 0;
 
-		if (ttext[i] == '\n' || !ttext[i])
+		if (g_TText[i] == '\n' || !g_TText[i])
 		{
 			char buf[32];
 
@@ -3211,14 +3256,14 @@ static void updatelines(int force)
 				if (k == 0)
 				{
 					for(m = 8; m > 0; m--)
-						line[j++] = popts.sepchar;
+						g_Line[j++] = popts.sepchar;
 				}
 				else
 				{
 					for (m = k, n = 0; m > 0; n++, m /= 10)
 						buf[n] = (m % 10) + '0';
 
-					if (badlinebits[totlin >> 3] & (1 << (totlin&7)))
+					if (g_Badlinebits[totlin >> 3] & (1 << (totlin & 7)))
 					{
 						while (n < 4)
 							buf[n++] = '*';
@@ -3227,14 +3272,14 @@ static void updatelines(int force)
 					}
 
 					for(n--; n >= 0; n--)
-						line[j++] = buf[n];
+						g_Line[j++] = buf[n];
 				}
 
-				line[j++] = '\r';
-				line[j++] = '\n';
+				g_Line[j++] = '\r';
+				g_Line[j++] = '\n';
 			}
 
-			if (!ttext[i])
+			if (!g_TText[i])
 				break;
 
 			k++;
@@ -3242,9 +3287,10 @@ static void updatelines(int force)
 		}
 	}
 
-	line[j] = 0;
-	SetWindowText(hWndLine, line);
+	g_Line[j] = 0;
+	SetWindowText(hWndLine, g_Line);
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////
 static void NewFile(int mode)
@@ -3355,9 +3401,9 @@ static void NewFile(int mode)
 	kglActiveTex(0.0);
 	qglBindTex(0.0);
 	ksetfov(90.0);
-	captexsiz = 512;
+	g_CapTextSize = 512;
 	dorecompile = 3;
-	updatelines(1);
+	//updatelines(1);
 	gsavfilnam[0] = 0;
 	gsavfilnamptr = 0;
 	SendMessage(hWndEdit, EM_SETMODIFY, 0, 0);
@@ -3391,7 +3437,7 @@ static void Save(char* filename)
 		strcpy(gsavfilnam, filename);
 		gsavfilnamptr = 0;
 
-		fwrite(text, 1, strlen(text), fil);
+		fwrite(g_Text, 1, strlen(g_Text), fil);
 		fclose(fil);
 		MessageBeep(48);
 		SendMessage(hWndEdit, EM_SETMODIFY, 0, 0);
@@ -3428,7 +3474,7 @@ static void SaveFile(HWND lwnd)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void resetwindows(int cmdshow);
+static void ResetWindows(int cmdshow);
 static void updateshifts(LPARAM lParam, int mode)
 {
 	if (!mode)
@@ -3476,7 +3522,7 @@ static void helpabout (void)
 					 "         http://pouet.net/prod.php?which=54245\r\n"
 					 "         ftp://ftp.untergrund.net/users/ind/polydraw.zip\r\n"
 					 ,__DATE__);
-	MessageBox(ghwnd,tbuf,prognam,MB_OK);
+	MessageBox(g_HWnd,tbuf,g_ProgramName,MB_OK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -3548,7 +3594,7 @@ static int findreplace_process(LPFINDREPLACE lpfr)
 
 	if (lpfr->Flags&(FR_FINDNEXT|FR_REPLACE|FR_REPLACEALL))
 	{
-		GetWindowText(hwnd,ttext,textsiz); textleng = strlen(ttext);
+		GetWindowText(hwnd,g_TText,g_TextSize); textleng = strlen(g_TText);
 		findleng = strlen(lpfr->lpstrFindWhat); repleng = strlen(lpfr->lpstrReplaceWith);
 
 		SendMessage(hwnd,EM_GETSEL,(WPARAM)&findsel0,(LPARAM)&findsel1);
@@ -3557,7 +3603,7 @@ static int findreplace_process(LPFINDREPLACE lpfr)
 		{
 			for (i = textleng-findleng; i >= 0; i--)
 			{
-				if (gfind_mymemcmp(ttext,i,lpfr->lpstrFindWhat,findleng,lpfr->Flags)) continue;
+				if (gfind_mymemcmp(g_TText,i,lpfr->lpstrFindWhat,findleng,lpfr->Flags)) continue;
 				SendMessage(hwnd,EM_SETSEL,i,i+findleng);
 				SendMessage(hwnd,EM_REPLACESEL,0,(LPARAM)lpfr->lpstrReplaceWith);
 				i += 1-findleng;
@@ -3576,10 +3622,10 @@ static int findreplace_process(LPFINDREPLACE lpfr)
 
 		if ((lpfr->Flags&FR_REPLACE) && (findsel1 - findsel0 == findleng) && (findsel0 <= textleng - findleng))
 		{
-			if (!gfind_mymemcmp(ttext, i, lpfr->lpstrFindWhat, findleng, lpfr->Flags))
+			if (!gfind_mymemcmp(g_TText, i, lpfr->lpstrFindWhat, findleng, lpfr->Flags))
 			{
 				SendMessage(hwnd, EM_REPLACESEL, 0, (LPARAM)lpfr->lpstrReplaceWith);
-				GetWindowText(hwnd, ttext, textleng); textleng = strlen(ttext);
+				GetWindowText(hwnd, g_TText, textleng); textleng = strlen(g_TText);
 			}
 		}
 
@@ -3600,7 +3646,7 @@ static int findreplace_process(LPFINDREPLACE lpfr)
 					i += textleng;
 			}
 
-			if ((i <= textleng-findleng) && (!gfind_mymemcmp(ttext,i,lpfr->lpstrFindWhat,findleng,lpfr->Flags)))
+			if ((i <= textleng-findleng) && (!gfind_mymemcmp(g_TText,i,lpfr->lpstrFindWhat,findleng,lpfr->Flags)))
 				break;
 		}
 
@@ -3648,7 +3694,7 @@ static void findreplace(HWND hwnd, int isreplace)
 
 		gfind_fr.lStructSize = sizeof(gfind_fr);
 		gfind_fr.hwndOwner = hwnd;
-		gfind_fr.hInstance = ghinst;
+		gfind_fr.hInstance = g_HInst;
 		gfind_fr.Flags = FR_DOWN;
 		gfind_fr.lpstrFindWhat    = gfind_findst;
 		gfind_fr.lpstrReplaceWith = gfind_replacest;
@@ -4052,6 +4098,7 @@ struct SScintillaColors
 const COLORREF g_Black = RGB(0, 0, 0);
 const COLORREF g_White = RGB(0xff, 0xff, 0xff);
 const COLORREF g_Gray = RGB(0x1e, 0x1e, 0x1e);
+const COLORREF g_LightGray = RGB(0x2a, 0x2a, 0x2a);
 const COLORREF g_Green = RGB(0, 0xff, 0);
 const COLORREF g_Red = RGB(0xff, 0, 0);
 const COLORREF g_Blue = RGB(0, 0, 0xff);
@@ -4111,7 +4158,7 @@ static SScintillaColors g_RGBSyntaxCpp[] =
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-void SetAStyle(HWND hWnd, int style, COLORREF fore, COLORREF back = RGB(0x1E, 0x1E, 0x1E), int size = -1, const char* face = nullptr)
+void SetAStyle(HWND hWnd, int style, COLORREF fore, COLORREF back = g_Gray, int size = -1, const char* face = nullptr)
 {
 	SendMessage(hWnd, SCI_STYLESETFORE, style, fore);
 	SendMessage(hWnd, SCI_STYLESETBACK, style, back);
@@ -4124,22 +4171,16 @@ void SetAStyle(HWND hWnd, int style, COLORREF fore, COLORREF back = RGB(0x1E, 0x
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void resetwindows(int cmdshow)
+static void ResetWindows(int cmdshow)
 {
 	static int ooglxres = 0;
 	static int ooglyres = 0;
 	RECT r;
-	int i, guiflags, x0[4], y0[4], x1[4], y1[4], linenumwid;
+	int i, guiflags, x0[3], y0[3], x1[3], y1[3];
 
 	i = ((labs(popts.fontheight) * 20) >> 4);
-	linenumwid = labs(popts.fontwidth);
 
-	if (!linenumwid)
-		linenumwid = ((i * 9) >> 4);
-
-	linenumwid *= 4;
-
-	if (!ghwnd)
+	if (!g_HWnd)
 	{
 		RECT rw;
 		int x, y;
@@ -4147,8 +4188,10 @@ static void resetwindows(int cmdshow)
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &rw, 0);
 		x = ((rw.right - rw.left - xres) >> 1) + rw.left;
 		y = ((rw.bottom - rw.top - yres) >> 1) + rw.top;
-		ghwnd = CreateWindow("PolyDraw", prognam, WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SIZEBOX, x, y, xres, yres, 0, 0, ghinst, 0); //|WS_VISIBLE|WS_POPUPWINDOW|WS_CAPTION
-		ShowWindow(ghwnd, cmdshow);
+		g_HWnd = CreateWindow("PolyDraw", g_ProgramName,
+			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SIZEBOX,
+			x, y, xres, yres, 0, 0, g_HInst, 0); //|WS_VISIBLE|WS_POPUPWINDOW|WS_CAPTION
+		ShowWindow(g_HWnd, cmdshow);
 	}
 
 	guiflags = WS_VISIBLE | WS_CHILD | WS_VSCROLL; //|WS_HSCROLL|WS_CAPTION|WS_SIZEBOX|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_SYSMENU;
@@ -4162,24 +4205,20 @@ static void resetwindows(int cmdshow)
 		y1[0] = oglyres;
 		x1[1] = oglxres;
 		y1[1] = yres - oglyres;
-		x1[2] = linenumwid;
+		x1[2] = xres - oglxres;
 		y1[2] = yres;
-		x1[3] = xres - oglxres - linenumwid;
-		y1[3] = yres;
 
 		if (!(popts.rendcorn & 1))
 		{
 			x0[0] = 0;
 			x0[1] = 0;
 			x0[2] = oglxres;
-			x0[3] = oglxres + linenumwid;
 		}
 		else
 		{
 			x0[0] = xres - oglxres;
 			x0[1] = xres - oglxres;
 			x0[2] = 0;
-			x0[3] = linenumwid;
 		}
 
 		if (!(popts.rendcorn & 2))
@@ -4187,14 +4226,12 @@ static void resetwindows(int cmdshow)
 			y0[0] = 0;
 			y0[1] = oglyres;
 			y0[2] = 0;
-			y0[3] = 0;
 		}
 		else
 		{
 			y0[0] = yres - oglyres;
 			y0[1] = 0;
 			y0[2] = 0;
-			y0[3] = 0;
 		}
 	}
 	else
@@ -4213,32 +4250,26 @@ static void resetwindows(int cmdshow)
 		y0[2] = 0;
 		x1[2] = 0;
 		y1[2] = 0;
-		x0[3] = oglxres;
-		y0[3] = 0;
-		x1[3] = 0;
-		y1[3] = 0;
 	}
 
 	if (hWndDraw)
 		MoveWindow(hWndDraw, x0[0], y0[0], x1[0], y1[0], 1);
 	else
-		hWndDraw = CreateWindowEx(0, "PolyDraw", "Render", WS_VISIBLE | WS_CHILD, x0[0], y0[0], x1[0], y1[0], ghwnd, (HMENU)100, ghinst, 0);
+		hWndDraw = CreateWindowEx(0, "PolyDraw", "Render", WS_VISIBLE | WS_CHILD, x0[0], y0[0], x1[0], y1[0], g_HWnd, (HMENU)100, g_HInst, 0);
 
 	if (hWndCons)
 		MoveWindow(hWndCons, x0[1], y0[1], x1[1], y1[1], 1);
 	else
-		hWndCons = CreateWindowEx(WS_EX_CLIENTEDGE, "edit", "Console", guiflags | ES_READONLY | WS_HSCROLL, x0[1], y0[1], x1[1], y1[1], ghwnd, (HMENU)101, ghinst, 0);
-
-	if (hWndLine)
-		MoveWindow(hWndLine, x0[2], y0[2], x1[2], y1[2], 1);
-	else
-		hWndLine = CreateWindowEx(WS_EX_WINDOWEDGE, "edit", "Lines", (guiflags | ES_READONLY | ES_RIGHT)&~WS_VSCROLL, x0[2], y0[2], x1[2], y1[2], ghwnd, (HMENU)101, ghinst, 0);
+		hWndCons = CreateWindowEx(WS_EX_CLIENTEDGE, "edit", "Console", guiflags | ES_READONLY | WS_HSCROLL, x0[1], y0[1], x1[1], y1[1], g_HWnd, (HMENU)101, g_HInst, 0);
 
 	if (hWndEdit)
-		MoveWindow(hWndEdit, x0[3], y0[3], x1[3], y1[3], 1);
+		MoveWindow(hWndEdit, x0[2], y0[2], x1[2], y1[2], 1);
 	else
 	{
-		hWndEdit = CreateWindowEx(WS_EX_WINDOWEDGE, "Scintilla", "Script", guiflags | ES_NOHIDESEL, x0[3], y0[3], x1[3], y1[3], ghwnd, (HMENU)102, ghinst, 0);
+		hWndEdit = CreateWindowEx(WS_EX_WINDOWEDGE, "Scintilla", "Script",
+			guiflags | ES_NOHIDESEL,
+			x0[3], y0[3], x1[3], y1[3],
+			g_HWnd, (HMENU)102, g_HInst, 0);
 
 		// CPP lexer
 		SendMessage(hWndEdit, SCI_SETLEXER, SCLEX_CPP, 0);
@@ -4256,7 +4287,7 @@ static void resetwindows(int cmdshow)
 		SetAStyle(hWndEdit, STYLE_DEFAULT, g_White, g_Gray, 10, "Courier New");
 
 		// Set caret foreground color
-		SendMessage(hWndEdit, SCI_SETCARETFORE, RGB(255, 255, 255), 0);
+		SendMessage(hWndEdit, SCI_SETCARETFORE, g_White, 0);
 
 		// Set all styles
 		SendMessage(hWndEdit, SCI_STYLECLEARALL, 0, 0);
@@ -4265,8 +4296,21 @@ static void resetwindows(int cmdshow)
 		SendMessage(hWndEdit, SCI_SETSELBACK, TRUE, RGB(0, 0, 255));
 
 		// Set syntax colors
-		for (long i = 0; g_RGBSyntaxCpp[i].iItem != -1; i++)
+		for (int i = 0; g_RGBSyntaxCpp[i].iItem != -1; i++)
 			SetAStyle(hWndEdit, g_RGBSyntaxCpp[i].iItem, g_RGBSyntaxCpp[i].rgb);
+
+		// Set margin widths
+		SendMessage(hWndEdit, SCI_SETMARGINWIDTHN, 0, 40);
+		SendMessage(hWndEdit, SCI_SETMARGINWIDTHN, 1, 10);
+		//SendMessage(hWndEdit, SCI_STYLESETBACK, style, RGB(0, 0, 0));
+
+		// Set line numbers in left margin (0), symbols in next (1)
+		SendMessage(hWndEdit, SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER); // line numbers
+		SendMessage(hWndEdit, SCI_SETMARGINTYPEN, 1, SC_MARGIN_SYMBOL); // symbols
+
+		// Set FG/BG colors for margins
+		SendMessage(hWndEdit, SCI_STYLESETFORE, STYLE_LINENUMBER, g_Green);
+		SendMessage(hWndEdit, SCI_STYLESETBACK, STYLE_LINENUMBER, g_LightGray);
 
 #if 0
 		SendMessage(hWndEdit, EM_LIMITTEXT, textsiz - 1, 0);
@@ -4280,11 +4324,13 @@ static void resetwindows(int cmdshow)
 #endif
 	}
 
+	/*
 	// increase virtual size of line window
 	SendMessage(hWndLine, EM_GETRECT, 0, (LPARAM)&r);
 	r.left = -1000;
 	r.right = linenumwid - 4;
 	SendMessage(hWndLine, EM_SETRECTNP, 0, (LPARAM)&r);
+	*/
 
 	if (ooglxres != oglxres || ooglyres != oglyres)
 	{
@@ -4314,7 +4360,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			GetCursorPos(&p1);
 
 			if (((unsigned)(p1.x-p0.x) < (unsigned)oglxres) && ((unsigned)(p1.y-p0.y) < (unsigned)oglyres))
-				SetFocus(ghwnd);
+				SetFocus(g_HWnd);
 
 			break;
 
@@ -4345,8 +4391,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			if ((wParam&255) == VK_RETURN)
 			{
 				popts.fullscreen = !popts.fullscreen;
-				CheckMenuItem(gmenu,MENU_FULLSCREEN,popts.fullscreen*MF_CHECKED);
-				resetwindows(SW_NORMAL);
+				CheckMenuItem(g_HMenu,MENU_FULLSCREEN,popts.fullscreen*MF_CHECKED);
+				ResetWindows(SW_NORMAL);
 				return 0;
 			}
 
@@ -4354,19 +4400,19 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 		case WM_CHAR:
 			if ((wParam&255) == 10) { dorecompile = 3; return(0); } // Ctrl+Enter
-			if ((wParam&255) == 0x0c) { LoadFile(ghwnd); return(0); } // Ctrl+L
-			if ((wParam&255) == 0x13) { if (gsavfilnam[0]) Save(gsavfilnam); else SaveFile(ghwnd); return(0); } // Ctrl+S
+			if ((wParam&255) == 0x0c) { LoadFile(g_HWnd); return(0); } // Ctrl+L
+			if ((wParam&255) == 0x13) { if (gsavfilnam[0]) Save(gsavfilnam); else SaveFile(g_HWnd); return(0); } // Ctrl+S
 			if ((wParam&255) == 0x06) { findreplace(hWndEdit,0); shkeystatus = 0; return(0); } // Ctrl+F
 			if ((wParam&255) == 0x12) { findreplace(hWndEdit,1); shkeystatus = 0; return(0); } // Ctrl+R
 			break;
 
 		case WM_SIZE:
-			if (hWnd != ghwnd) break;
+			if (hWnd != g_HWnd) break;
 			if ((wParam == SIZE_MAXHIDE) || (wParam == SIZE_MINIMIZED)) { ActiveApp = 0; break; }
 			ActiveApp = 1;
 			xres = LOWORD(lParam);
 			yres = HIWORD(lParam);
-			if ((oxres != xres) || (oyres != yres)) { oxres = xres; oyres = yres; resetwindows(SW_NORMAL); }
+			if ((oxres != xres) || (oyres != yres)) { oxres = xres; oyres = yres; ResetWindows(SW_NORMAL); }
 			break;
 
 		case WM_ACTIVATEAPP: ActiveApp = (BOOL)wParam; shkeystatus = 0; break;
@@ -4402,7 +4448,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			case MENU_EDITFINDNEXT: findnext(1); break;
 			case MENU_EDITFINDPREV: findnext(0); break;
 			case MENU_EDITREPLACE: findreplace(hWndEdit,1); break;
-			case MENU_COMPCONTENT: popts.compctrlent ^= 1; if (!popts.compctrlent) dorecompile = 3; CheckMenuItem(gmenu,MENU_COMPCONTENT,popts.compctrlent*MF_CHECKED); break;
+			case MENU_COMPCONTENT: popts.compctrlent ^= 1; if (!popts.compctrlent) dorecompile = 3; CheckMenuItem(g_HMenu,MENU_COMPCONTENT,popts.compctrlent*MF_CHECKED); break;
 			case MENU_EVALHIGHLIGHT:
 				{
 					int i0, i1;
@@ -4410,9 +4456,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 					if (i0 < i1)
 					{
-						GetWindowText(hWndEdit,ttext,textsiz);
+						GetWindowText(hWndEdit,g_TText,g_TextSize);
 
-						if (eval_highlight(&ttext[i0], i1 - i0))
+						if (eval_highlight(&g_TText[i0], i1 - i0))
 							MessageBeep(64);
 						else
 							MessageBeep(16);
@@ -4426,22 +4472,22 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 				popts.fullscreen = 0;
 
 				for (i = 0; i < 4; i++)
-					CheckMenuItem(gmenu, MENU_RENDPLC + i, (LOWORD(wParam) == MENU_RENDPLC + i)*MF_CHECKED);
+					CheckMenuItem(g_HMenu, MENU_RENDPLC + i, (LOWORD(wParam) == MENU_RENDPLC + i)*MF_CHECKED);
 
-				CheckMenuItem(gmenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
-				resetwindows(SW_NORMAL);
+				CheckMenuItem(g_HMenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
+				ResetWindows(SW_NORMAL);
 				break;
 
 			case MENU_FULLSCREEN:
 				popts.fullscreen = !popts.fullscreen;
-				CheckMenuItem(gmenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
-				resetwindows(SW_NORMAL);
+				CheckMenuItem(g_HMenu, MENU_FULLSCREEN, popts.fullscreen*MF_CHECKED);
+				ResetWindows(SW_NORMAL);
 				break;
 
 			case MENU_CLEARBUFFER:
 				popts.clearbuffer = !popts.clearbuffer;
-				CheckMenuItem(gmenu, MENU_CLEARBUFFER, popts.clearbuffer*MF_CHECKED);
-				resetwindows(SW_NORMAL);
+				CheckMenuItem(g_HMenu, MENU_CLEARBUFFER, popts.clearbuffer*MF_CHECKED);
+				ResetWindows(SW_NORMAL);
 				break;
 
 			case MENU_FONT:
@@ -4482,15 +4528,15 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 							SendMessage(hWndCons, WM_SETFONT, (WPARAM)hfont, 0); ShowWindow(hWndCons, SW_HIDE); UpdateWindow(hWndCons); ShowWindow(hWndCons, SW_SHOWNORMAL);
 							SendMessage(hWndEdit, WM_SETFONT, (WPARAM)hfont, 0); ShowWindow(hWndEdit, SW_HIDE); UpdateWindow(hWndEdit); ShowWindow(hWndEdit, SW_SHOWNORMAL);
-							SendMessage(hWndLine, WM_SETFONT, (WPARAM)hfont, 0); ShowWindow(hWndLine, SW_HIDE); UpdateWindow(hWndLine); ShowWindow(hWndLine, SW_SHOWNORMAL);
-							resetwindows(SW_NORMAL);
-							updatelines(1);
+							//SendMessage(hWndLine, WM_SETFONT, (WPARAM)hfont, 0); ShowWindow(hWndLine, SW_HIDE); UpdateWindow(hWndLine); ShowWindow(hWndLine, SW_SHOWNORMAL);
+							ResetWindows(SW_NORMAL);
+							//updatelines(1);
 						}
 					}
 				}
 
 				break;
-
+				/*
 			case MENU_HELPTEXT:
 				{
 					char tbuf[MAX_PATH];
@@ -4499,6 +4545,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 				}
 
 				break;
+				*/
 
 			case MENU_HELPABOUT:
 				helpabout();
@@ -4509,9 +4556,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			{
 				//case EN_CHANGE: //break; //Edit control's contents will change
 				//case EN_VSCROLL: updatelines(0); break; //doesn't get triggered by mouse dragging; must use WM_PAINT in nhWndEdit instead
-				case EN_UPDATE: //Edit control's contents have changed
-					if ((HWND)lParam == hWndEdit)
-						updatelines(1); //text changed in edit window (would be cheaper than calling strcmp :P)
+				case EN_UPDATE: // Edit control's contents have changed
+					//if ((HWND)lParam == hWndEdit)
+					//	updatelines(1); //text changed in edit window (would be cheaper than calling strcmp :P)
 
 					break;
 			}
@@ -4523,7 +4570,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void EnableOpenGL(HWND hWnd, HDC *hDC, HGLRC *hRC)
+static void EnableOpenGL(HWND hWnd, HDC* hDC, HGLRC* hRC)
 {
 	PIXELFORMATDESCRIPTOR pfd;
 	int format;
@@ -4602,7 +4649,7 @@ static int cmdline2arg(char* cmdline, char** argv)
 		cmdline[i-1] = 0;
 
 	argv[argc] = 0;
-	return(argc);
+	return argc;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -4610,7 +4657,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
 	if (LoadLibrary("SciLexer.dll") == nullptr)
 	{
-		MessageBox(ghwnd, "Loading Scintilla DLL failed.  Make sure SciLexer.dll is available.", prognam, MB_OK);
+		MessageBox(g_HWnd, "Loading Scintilla DLL failed.  Make sure SciLexer.dll is available.", g_ProgramName, MB_OK);
 		return 1;
 	}
 
@@ -4648,7 +4695,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	kzaddstack(gexedironly);
 
-	argc = cmdline2arg(lpCmdLine,argv);
+	argc = cmdline2arg(lpCmdLine, argv);
 
 	for (i = argc - 1; i > 0; i--)
 	{
@@ -4689,7 +4736,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			continue;
 		}
 
-		if ((argv[i][1] >= '0') && (argv[i][1] <= '9'))
+		if (argv[i][1] >= '0' && argv[i][1] <= '9')
 		{
 			k = 0; z = 0;
 
@@ -4720,7 +4767,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 	}
 
-	ghinst = hInstance;
+	g_HInst = hInstance;
 
 	wc.style = CS_OWNDC;
 	wc.lpfnWndProc = WndProc;
@@ -4735,21 +4782,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RegisterClass(&wc);
 
 	//if (osvi.dwPlatformId < 2) textsiz = 32768;/*<NT*/ else textsiz = 65536;
-	textsiz = 65536;
-	text = (char*)malloc(textsiz); if (!text) { MessageBox(ghwnd,"malloc failed",prognam,MB_OK); return 1; }
-	otext = (char*)malloc(textsiz); if (!otext) { MessageBox(ghwnd, "malloc failed", prognam, MB_OK); return 1; }
-	ttext = (char*)malloc(textsiz); if (!ttext) { MessageBox(ghwnd, "malloc failed", prognam, MB_OK); return 1; }
-	line = (char*)malloc(textsiz); if (!line) { MessageBox(ghwnd, "malloc failed", prognam, MB_OK); return 1; }
-	badlinebits = (char*)malloc((textsiz + 7) >> 3); if (!badlinebits) { MessageBox(ghwnd, "malloc failed", prognam, MB_OK); return 1; }
+	g_TextSize = 65536;
+	g_Text = (char*)malloc(g_TextSize); if (!g_Text) { MessageBox(g_HWnd,"malloc failed",g_ProgramName,MB_OK); return 1; }
+	g_OText = (char*)malloc(g_TextSize); if (!g_OText) { MessageBox(g_HWnd, "malloc failed", g_ProgramName, MB_OK); return 1; }
+	g_TText = (char*)malloc(g_TextSize); if (!g_TText) { MessageBox(g_HWnd, "malloc failed", g_ProgramName, MB_OK); return 1; }
+	g_Line = (char*)malloc(g_TextSize); if (!g_Line) { MessageBox(g_HWnd, "malloc failed", g_ProgramName, MB_OK); return 1; }
+	g_Badlinebits = (char*)malloc((g_TextSize + 7) >> 3); if (!g_Badlinebits) { MessageBox(g_HWnd, "malloc failed", g_ProgramName, MB_OK); return 1; }
 
-	memset(badlinebits,0,(textsiz+7)>>3);
+	memset(g_Badlinebits, 0, (g_TextSize + 7) >> 3);
 
-	resetwindows(nCmdShow);
+	ResetWindows(nCmdShow);
 
 	hfont = CreateFont(popts.fontheight, popts.fontwidth, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, popts.fontname);
 	SendMessage(hWndCons, WM_SETFONT, (WPARAM)hfont, 0);
 	SendMessage(hWndEdit, WM_SETFONT, (WPARAM)hfont, 0);
-	SendMessage(hWndLine, WM_SETFONT, (WPARAM)hfont, 0);
+	//SendMessage(hWndLine, WM_SETFONT, (WPARAM)hfont, 0);
 
 	//Use MF_POPUP for top entries
 	//Use MF_END for last (top or pulldown) entry
@@ -4786,10 +4833,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		sptr = menuadd(sptr, "Clear screen every frame", (popts.clearbuffer != 0)*MF_CHECKED, MENU_CLEARBUFFER);
 		sptr = menuadd(sptr, "Select &Font..", MF_END, MENU_FONT);
 		sptr = menuadd(sptr, "&Help", MF_POPUP | MF_END, 0);
-		sptr = menuadd(sptr, "   PolyDraw.txt..", 0, MENU_HELPTEXT);
+		//sptr = menuadd(sptr, "   PolyDraw.txt..", 0, MENU_HELPTEXT);
 		sptr = menuadd(sptr, "   &About\tF1", MF_END, MENU_HELPABOUT);
-		gmenu = LoadMenuIndirect(sbuf);
-		SetMenu(ghwnd, gmenu);
+		g_HMenu = LoadMenuIndirect(sbuf);
+		SetMenu(g_HWnd, g_HMenu);
 	}
 
 	EnableOpenGL(hWndDraw, &hDC, &hRC);
@@ -4832,24 +4879,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 		if (!useoldglfuncs)
 		{
-			glfp[i] = (glfp_t)wglGetProcAddress(glnames[i]);
+			g_glfp[i] = (glfp_t)wglGetProcAddress(glnames[i]);
 
-			if (glfp[i])
+			if (g_glfp[i])
 				continue;
 
 			useoldglfuncs = 1;
 		}
 
-		glfp[i] = (glfp_t)wglGetProcAddress(glnames_old[i]);
+		g_glfp[i] = (glfp_t)wglGetProcAddress(glnames_old[i]);
 
-		if (glfp[i])
+		if (g_glfp[i])
 			continue;
 
 		sprintf(buf, "%s() / %s() not supported. :/", glnames[i], glnames_old[i]);
 
 		if (i < glCreateShader)
 		{
-			MessageBox(ghwnd, buf, prognam, MB_OK);
+			MessageBox(g_HWnd, buf, g_ProgramName, MB_OK);
 			ExitProcess(0);
 		}
 
@@ -4870,15 +4917,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 	if (supporttimerquery)
-		((PFNGLGENQUERIESPROC)glfp[glGenQueries])(1, (GLuint*)queries);
+		((PFNGLGENQUERIESPROC)g_glfp[glGenQueries])(1, (GLuint*)queries);
 
-	if (glfp[wglSwapIntervalEXT])
-		((PFNWGLSWAPINTERVALEXTPROC)glfp[wglSwapIntervalEXT])(1);
+	if (g_glfp[wglSwapIntervalEXT])
+		((PFNWGLSWAPINTERVALEXTPROC)g_glfp[wglSwapIntervalEXT])(1);
 
 	noiseinit();
 
-	text[0] = 0;
-	otext[0] = 0;
+	g_Text[0] = 0;
+	g_OText[0] = 0;
 
 	if (argfilindex >= 0)
 		Load(argv[argfilindex], hWndEdit);
@@ -4941,13 +4988,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 
-		GetWindowText(hWndEdit, text, textsiz);
-		tsecn = txt2sec(text, tsec);
+		GetWindowText(hWndEdit, g_Text, g_TextSize);
+		g_TSecN = txt2sec(g_Text, g_TSec);
 
-		setShaders(ghwnd, hWndEdit);
+		setShaders(g_HWnd, hWndEdit);
 
 		if (shadn[2])
-			Draw(ghwnd, hWndEdit);
+			Draw(g_HWnd, hWndEdit);
 
 		if (!shadn[2] || !gevalfunc)
 		{
@@ -4955,15 +5002,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			if (popts.rendcorn == 4 && gmehax)
 			{
-				CheckMenuItem(gmenu, MENU_FULLSCREEN, 0);
+				CheckMenuItem(g_HMenu, MENU_FULLSCREEN, 0);
 				popts.fullscreen = 0;
-				resetwindows(SW_NORMAL);
+				ResetWindows(SW_NORMAL);
 			}
 		}
 
-		strcpy(otext, text);
-		otsecn = tsecn;
-		memcpy(otsec, tsec, tsecn*sizeof(tsec_t));
+		strcpy(g_OText, g_Text);
+		g_OTSecN = g_TSecN;
+		memcpy(g_OTSec, g_TSec, g_TSecN*sizeof(tsec_t));
 
 		SwapBuffers(hDC);
 
@@ -4980,7 +5027,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					gsavfilnamptr = &gsavfilnam[i + 1];
 			}
 
-			i = sprintf(buf, "%s", prognam);
+			i = sprintf(buf, "%s", g_ProgramName);
 
 			if (gsavfilnam[0])
 				i += sprintf(&buf[i], " - %s", gsavfilnamptr);
@@ -4992,7 +5039,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			qlast = q;
 			qnum = 0;
-			SetWindowText(ghwnd, buf);
+			SetWindowText(g_HWnd, buf);
 		}
 	}
 
@@ -5000,43 +5047,43 @@ quitit:
 	//passasksave();
 
 	if (supporttimerquery)
-		((PFNGLDELETEQUERIESPROC)glfp[glDeleteQueries])(1, (GLuint*)queries);
+		((PFNGLDELETEQUERIESPROC)g_glfp[glDeleteQueries])(1, (GLuint*)queries);
 
 	playnoteuninit();
 	DisableOpenGL(hWndDraw, hDC, hRC);
-	DestroyWindow(ghwnd);
+	DestroyWindow(g_HWnd);
 
 	if (!gmehax)
 		saveini();
 
-	if (badlinebits)
+	if (g_Badlinebits)
 	{
-		free(badlinebits);
-		badlinebits = 0;
+		free(g_Badlinebits);
+		g_Badlinebits = 0;
 	}
 
-	if (line)
+	if (g_Line)
 	{
-		free(line);
-		line = 0;
+		free(g_Line);
+		g_Line = 0;
 	}
 
-	if (ttext)
+	if (g_TText)
 	{
-		free(ttext);
-		ttext = 0;
+		free(g_TText);
+		g_TText = 0;
 	}
 
-	if (otext)
+	if (g_OText)
 	{
-		free(otext);
-		otext = 0;
+		free(g_OText);
+		g_OText = 0;
 	}
 
-	if (text)
+	if (g_Text)
 	{
-		free(text);
-		text = 0;
+		free(g_Text);
+		g_Text = 0;
 	}
 
 	return 0;

@@ -26,7 +26,7 @@
     <ClCompile Include="..\source\kplib.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\polydraw.cpp">
+    <ClCompile Include="..\source\PolyDraw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
