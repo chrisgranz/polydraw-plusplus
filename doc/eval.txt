@@ -1,0 +1,210 @@
+04/17/2003. Ken Silverman's x87 expression compiler. This code takes a math
+   expression in the form of a string, compiles it to (somewhat) optimized x87
+   code, and returns a function pointer so you can call it freely from your C
+   code. You are responsible for calling 'free' to the function pointer. All
+   parameters are passed as double-precision floating point. The return value
+   is also double.
+
+------------------------------------------------------------------------------
+Requirements:
+
+   CPU: Pentium or above
+   OS: Microsoft Windows 98/ME/2K/XP
+   Compiler: Microsoft Visual C/C++ 6.0 or above.
+
+------------------------------------------------------------------------------
+License:
+
+I would love to see EVAL used in applications other than my own. This library
+is designed to compile&link with Microsoft Visual C/C++ 6.0 or above. If you
+plan to use this code for your own project, all I ask is:
+
+ 1. You distribute your project free of charge - through the internet only.
+       You are not allowed to make money off this code in any way - unless you
+       consult me first.
+ 2. You give me proper credit. This is sufficient:
+       EVAL library written by Ken Silverman (http://advsys.net/ken)
+
+If you do anything cool with this, I'd love to hear about it! I would prefer
+hearing about it from you personally rather than finding out about it for the
+first time on google. :) Of course, writing me is not a requirement. (My
+E-mail address can be found on my website.) If you have any questions or
+feature requests about in the library, do not hesitate to ask.
+
+------------------------------------------------------------------------------
+Currently supported operators, functions, and statements:
+
+   Parenthesis: (), Arrays: [], Blocks: {}, Const strings: "", Literal '"': \"
+          Assignment: = *= /= %= += -= ++ -- (only 1 allowed per statement)
+   1-Param Operators: + - . 0 1 2 3 4 5 6 7 8 9 E PI NRND RND (variable names)
+   2-Param Operators: ^ * / % + - < <= > >= == != && ||
+   1-Param Functions: ABS ACOS ASIN ATAN ATN CEIL COS EXP FABS FACT FLOOR INT
+                      LOG SGN SIN SQRT TAN UNIT
+   2-Param Functions: ATAN2 FMOD LOG MIN MAX POW
+          Statements: IF(expr){codetrue}
+                      IF(expr){codetrue}ELSE{codefalse}
+                      DO{code}WHILE(expr);
+                      WHILE(expr){code}
+                      FOR(precode;expr;postcode){code}
+                      GOTO label;
+                      RETURN expr;
+                      BREAK;
+                      CONTINUE;
+                      ENUM{name(=expr),name(=expr),...};
+                      STATIC name[expr]["...],name["],...;
+                      label:
+            Comments: // text (CR), /* text */
+
+EVAL syntax is similar to C syntax, with the following differences:
+
+Variables & arrays:
+ * Function and variable names are case insensitive
+ * Type declarations are not allowed in the function body. All variables are
+      assumed to be 'double'
+ * The size of a static array declaration must be a constant or enum name
+ * Strings cannot be in a variable yet. Only the direct form "" is supported
+ * EVAL uses bounds checking for arrays (to protect EVALDRAW from crashing
+      constantly). The algorithm depends on the array size:
+     Power of 2: index is masked using bitwise 'and' causing wrap-around
+           Else: out of bounds indices are changed to 0 before the read/write
+
+Built-in functions:
+ * PI is a built-in constant: 3.14159265358979323...
+ * RND is a parameterless function returning a uniform random number [0..1)
+ * NRND is a parameterless function returning a normal random number
+      (mean = 0, standard deviation = 1)
+ * '^' is a power operator (not an exclusive or). You can also use POW(,)
+ * ATN is an alias for ATAN
+ * SQR is an alias for SQRT
+ * MIN&MAX are usually defined in C headers; here they are library functions
+ * LOG supports both 1 and 2 parameter forms. The 2nd paramter is the base
+ * INT rounds towards 0. Use FLOOR&CEIL to round towards -/+inf
+ * SGN returns -1 for negative numbers, 1 for positive numbers, 0 for 0
+ * UNIT returns 0 for negative numbers, 1 for positive numbers, .5 for 0
+ * FACT doesn't exist in C. It calculates factorials using the gamma function
+
+Misc.:
+ * Switch statements are not yet supported
+ * Array initializer lists (ex: static a[3] = {2,3,5};) not yet supported
+
+Function style:
+ * The main function must be at the top of the code and have no name
+ * The last expression is the return value and doesn't need a ;
+ * Return values are optional. If omitted, the function returns 0.0
+ * For a 1-function script, the {} around the function body is optional. For a
+      multi-function script, you must use {} around every function body.
+ * Function parameters can be of type: double, double *, or char *.
+
+   Function parameter syntax:
+      kasm87 syntax: C/C++ syntax:               Description:
+         a           double a                    pass-by-value variable
+         &a          double &a                   pointer to double
+         $a          char *a                     pointer to string
+         a[4]        double a[4]                 pointer to array of doubles
+         a()         double (*a)(double)         function pointer, 1 param
+         a(,)        double (*a)(double,double)  function pointer, 2 params..
+         a(,,)       double (*a)(double,double,double)
+         a(&,)       double (*a)(double*,double)
+         a($,)       double (*a)(char*)
+         a($,.)      double (*a)(char*,...)
+         a(,&,$)     double (*a)(double,double*,char*)
+         a(,&,[8])   double (*a)(double,double*,double*)
+
+   Inside function pointers:
+      kasm87 syntax: C/C++ syntax: Description:
+         (blank)     double        Standard pass-by-value double variable
+         &           double *      Variable pointer; can't be used as array
+         [#]         double *      Array pointer. Number is bounds protection.
+         $           char *        String pointer
+         .           ...           For printf:no type checking. Must be last.
+
+For a changelog/history, please refer to EVALDRAW.TXT included with
+EVALDRAW.ZIP. Many of the items listed there apply to EVAL.C.
+
+------------------------------------------------------------------------------
+Compiling:
+
+   At the command prompt, type either:
+      cl evaltest.c eval.obj
+   Or to use my favorite optimization switches, type:
+      nmake evaltest.c
+
+   If you prefer compiling in the Visual Studio environment, that is certainly
+   possible. I don't use it though, so you'll have to set up the project
+   yourself. For hints on setting up the project, I suggest studying the
+   compiler options used in the embedded makefile at the top of evaltest.c.
+
+------------------------------------------------------------------------------
+Library documentation:
+
+   //These typedefs shorten the syntax of user-generate function prototypes.
+   //I noticed they only work in some compilers though. If portability is
+   //important, then avoid them.
+typedef double (__cdecl *EVALFUNC)(double, ...);
+typedef double (__cdecl *EVALFUNCP)(void *, ...);
+
+   //function:
+   //   This is your EVAL function. The syntax is similar to C. See the notes
+   //   above for a full description of similarities and differences.
+   //
+   //   You can pass any number of variables to your function. You declare
+   //   the names and the order of variables passed to your function using the
+   //   first set of parenthesis. For example:
+   //
+   //      "(x,y,z)sqrt(x*x+y*y+z*z)"
+   //
+   //   Here, the (x,y,z) tells kasm87 that the function will have 3
+   //   parameters, with the first parameter called "x", etc...
+   //
+   //Returns either:
+   //   1. Pointer to the newly generated C function (__cdecl format)
+   //   2. NULL pointer if there was an error in parsing.
+extern void *kasm87 (char *codestring);
+
+   //Any function pointers returned by kasm87() must be freed by the caller
+   //using kasm87free(). Not doing so will result in memory leaks.
+extern void kasm87free (void *);
+
+   //Free all internal buffers used by EVAL.C. I recommend you use this only
+   //at program exit. Calling this between kasm87() calls will force it to
+   //re-allocate all its dynamic arrays on the next call. This may be slow if
+   //you are calling kasm87 often. By not calling this, you allow kasm87() to
+   //re-use previously allocated memory (and avoid some allocation calls).
+extern void kasm87freeall ();
+
+   //Returns string of compiled code based on showflags (call after kasm87)
+   //Showflags:
+   //   1: pseudo-asm
+   //   2: machine code bytes
+   //  (4: Intel asm)
+extern void kasm87_showdebug (long showflags, char *debuf, long debuflng);
+
+   //Supply list of external functions, variables, and arrays that will be
+   //recognized by any future kasm87() calls. To clear the list, call:
+   //kasm87addext(0,0);
+typedef struct { char *nam; void *ptr; } evalextyp;
+extern void kasm87addext (evalextyp *daeet, long n);
+
+   //Forces a user function to quit by replacing all backwards jumps with jump
+   //offsets of 0 (effectively disabling them). The function will return
+   //invalid results when this is used. The reason it exists is to avoid the
+   //use of TerminateThread - which by design is evil.
+   //   mode=0: overwrite backward jumps to have a relative offset of 0
+   //   mode=1: restore backward jumps
+extern void kasm87jumpback (void *func, long mode);
+   //A typical sequence to force a user script to quit would be:
+   //   kasm87jumpback(myfunc,0);
+   //   WaitForSingleObject(myfunc_thread,INFINITE);
+   //   kasm87jumpback(myfunc,1);
+
+//If kasm87 returns a NULL pointer, an error string is stored in kasm87err.
+extern char kasm87err[256];
+
+   //The number of bytes allocated by the malloc in kasm87
+extern long kasm87leng;
+
+   //0=disable optimizations(faster compile), 1=optimize (default)
+extern long kasm87optimize;
+
+------------------------------------------------------------------------------
+Ken's official website: http://advsys.net/ken

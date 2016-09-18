@@ -34,12 +34,12 @@
 extern "C" {
 
 //KPLIB.H:
-//High-level (easy) picture loading function:
+// High-level (easy) picture loading function:
 extern void kpzload(const char*, int*, int*, int*, int*);
-//Low-level PNG/JPG functions:
+// Low-level PNG/JPG functions:
 extern int kpgetdim(const char*, int, int*, int*);
 extern int kprender(const char*, int, INT_PTR, int, int, int, int, int);
-//Ken's ZIP functions:
+// Ken's ZIP functions:
 extern int kzaddstack(const char*);
 extern void kzuninit();
 extern void kzsetfil(FILE*);
@@ -189,10 +189,35 @@ typedef void   (GLAPIENTRY *PFNGLGENFRAMEBUFFERSEXTPROC)     (GLsizei, GLuint *)
 //
 //public: KGL_BGRA32, KGL_FLOAT, KGL_VEC4
 
-enum { KGL_BGRA32=0, KGL_CHAR, KGL_SHORT, KGL_INT/*only supported on newest cards*/, KGL_FLOAT, KGL_VEC4, KGL_NUM};
-enum { KGL_LINEAR = (0<<4), KGL_NEAREST = (1<<4), KGL_MIPMAP = (2<<4),
-		 KGL_MIPMAP3 = (2<<4), KGL_MIPMAP2 = (3<<4), KGL_MIPMAP1 = (4<<4), KGL_MIPMAP0 = (5<<4)};
-enum { KGL_REPEAT = (0<<8), KGL_MIRRORED_REPEAT = (1<<8), KGL_CLAMP = (2<<8), KGL_CLAMP_TO_EDGE = (3<<8)};
+enum
+{
+	KGL_BGRA32 = 0,
+	KGL_CHAR,
+	KGL_SHORT,
+	KGL_INT, //only supported on newest cards
+	KGL_FLOAT,
+	KGL_VEC4,
+	KGL_NUM
+};
+
+enum
+{
+	KGL_LINEAR = (0<<4),
+	KGL_NEAREST = (1<<4),
+	KGL_MIPMAP = (2<<4),
+	KGL_MIPMAP3 = (2<<4),
+	KGL_MIPMAP2 = (3<<4),
+	KGL_MIPMAP1 = (4<<4),
+	KGL_MIPMAP0 = (5<<4)
+};
+
+enum
+{
+	KGL_REPEAT = (0<<8),
+	KGL_MIRRORED_REPEAT = (1<<8),
+	KGL_CLAMP = (2<<8),
+	KGL_CLAMP_TO_EDGE = (3<<8)
+};
 
 static int usearbasm = 0;
 static int usearbasmonly = 0; //1 if "!!" is detected
