@@ -110,7 +110,7 @@ static __inline int filelength (int h)
 #define ASMNAME(x)
 #endif
 
-static int bytesperline, xres, yres, globxoffs, globyoffs;
+static int bytesperline, s_xres, s_yres, globxoffs, globyoffs;
 static INT_PTR frameplace;
 
 static const int pow2mask[32] =
@@ -562,7 +562,7 @@ static int initpass () //Interlaced images have 7 "passes", non-interlaced have 
 		//Precalculate x-clipping to screen borders (speeds up putbuf)
 		//Equation: (0 <= xr <= ixsiz) && (0 <= xr*ixstp+globxoffs+ixoff <= xres)
 	xr0 = max((-globxoffs-ixoff+(1<<j)-1)>>j,0);
-	xr1 = min((xres-globxoffs-ixoff+(1<<j)-1)>>j,ixsiz);
+	xr1 = min((s_xres-globxoffs-ixoff+(1<<j)-1)>>j,ixsiz);
 	xr0 = ixsiz-xr0;
 	xr1 = ixsiz-xr1;
 
@@ -924,7 +924,7 @@ static void putbuf (const unsigned char *buf, int leng)
 		if (xplc > 0) return;
 
 			//Draw line!
-		if ((unsigned int)yplc < (unsigned int)yres)
+		if ((unsigned int)yplc < (unsigned int)s_yres)
 		{
 			x = xr0; p = nfplace;
 			switch (kplib_coltype)
@@ -1100,8 +1100,8 @@ static int kpngrend (const char *kfilebuf, int kfilength,
 
 	frameplace = daframeplace;
 	bytesperline = dabytesperline;
-	xres = daxres;
-	yres = dayres;
+	s_xres = daxres;
+	s_yres = dayres;
 	globxoffs = daglobxoffs;
 	globyoffs = daglobyoffs;
 
@@ -1153,7 +1153,7 @@ static int kpngrend (const char *kfilebuf, int kfilength,
 				if (slidew >= slider)
 				{
 					putbuf(&slidebuf[(slider-16384)&32767],16384); slider += 16384;
-					if ((yplc >= yres) && (intlac < 2)) goto kpngrend_goodret;
+					if ((yplc >= s_yres) && (intlac < 2)) goto kpngrend_goodret;
 				}
 				slidebuf[(slidew++)&32767] = (char)getbits(8);
 			}
@@ -1206,7 +1206,7 @@ static int kpngrend (const char *kfilebuf, int kfilength,
 			if (slidew >= slider)
 			{
 				putbuf(&slidebuf[(slider-16384)&32767],16384); slider += 16384;
-				if ((yplc >= yres) && (intlac < 2)) goto kpngrend_goodret;
+				if ((yplc >= s_yres) && (intlac < 2)) goto kpngrend_goodret;
 			}
 
 			k = peekbits(LOGQHUFSIZ0);
@@ -1590,8 +1590,8 @@ static int kpegrend(const char *kfilebuf, int kfilength,
 
 				frameplace = daframeplace;
 				bytesperline = dabytesperline;
-				xres = daxres;
-				yres = dayres;
+				s_xres = daxres;
+				s_yres = dayres;
 				globxoffs = daglobxoffs;
 				globyoffs = daglobyoffs;
 
@@ -1734,11 +1734,11 @@ static int kpegrend(const char *kfilebuf, int kfilength,
 				glvstep = (gvsampmax>>glvstep); lcompvsamp[0] = min(lcompvsamp[0],glvstep); glvstep <<= 3;
 				lcomphvsamp0 = lcomphsamp[0]*lcompvsamp[0];
 
-				clipxdim = min(xdim+globxoffs,xres);
-				clipydim = min(ydim+globyoffs,yres);
+				clipxdim = min(xdim+globxoffs,s_xres);
+				clipydim = min(ydim+globyoffs,s_yres);
 
-				if ((max(globxoffs,0) >= xres) || (min(globxoffs+xdim,xres) <= 0) ||
-					 (max(globyoffs,0) >= yres) || (min(globyoffs+ydim,yres) <= 0))
+				if ((max(globxoffs,0) >= s_xres) || (min(globxoffs+xdim,s_xres) <= 0) ||
+					 (max(globyoffs,0) >= s_yres) || (min(globyoffs+ydim,s_yres) <= 0))
 				{ if (dctbuf) free(dctbuf); return(0); }
 
 				Alut[0] = (1<<Al); Alut[1] = -Alut[0];

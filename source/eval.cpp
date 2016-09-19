@@ -5374,7 +5374,7 @@ static void setecurs(long i0, long i1)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void* kasm87(char* bakz)
+void* kasm87(const char* bakz)
 {
 	long i, j, k, l, z, oi, got, pcnt, bcnt, scnt, whitespc, funcnt, inquotes, funptr;
 	long* lptr;

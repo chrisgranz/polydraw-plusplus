@@ -1,54 +1,87 @@
-   //Host code (EVAL)
-if (numframes == 0) { glsettex(0,"earth.jpg"); static env; env = glGetUniformLoc("env"); }
-glsetshader("v","g","f");
+// Host code (EVAL)
+()
+{
+	if (numframes == 0)
+	{
+		glsettex(0, "earth.jpg");
+		static env;
+		env = glGetUniformLoc("env");
+	}
 
-t = klock();
-glbindtexture(0);
-glUniform4f(env,cos(t/2),sin(t/2),0,0);
-glUniform4f(env+1,noise(t,0.5)+1,noise(t,1.5)+1,noise(t,2.5)+1,1);
-glBegin(GL_QUADS);
-glTexCoord(0,0); glVertex(-2,-1,-6);
-glTexCoord(1,0); glVertex(+2,-1,-6);
-glTexCoord(1,1); glVertex(+2,-1,-2);
-glTexCoord(0,1); glVertex(-2,-1,-2);
-glEnd();
+	glSetShader("v", "g", "f");
 
+	t = klock();
+	glbindtexture(0);
+	glUniform4f(env,cos(t/2),sin(t/2),0,0);
+	glUniform4f(env+1,noise(t,0.5)+1,noise(t,1.5)+1,noise(t,2.5)+1,1);
+	glBegin(GL_QUADS);
+	glTexCoord(0,0); glVertex(-2,-1,-6);
+	glTexCoord(1,0); glVertex(+2,-1,-6);
+	glTexCoord(1,1); glVertex(+2,-1,-2);
+	glTexCoord(0,1); glVertex(-2,-1,-2);
+	glEnd();
+}
+
+///////////////////////////////////////////////////
 @v:v
-void main ()
+void main()
 {
    gl_Position = ftransform();
    gl_FrontColor = gl_Color;
    gl_TexCoord[0] = gl_MultiTexCoord0;
 }
 
+///////////////////////////////////////////////////
 @g,GL_TRIANGLES,GL_TRIANGLE_STRIP,12:g
-#version 120
-#extension GL_EXT_geometry_shader4:enable
-void main ()
+//#version 120
+//#extension GL_EXT_geometry_shader4:enable
+void main()
 {
-   int i;
+	int i;
 
-   for(i=0;i<gl_VerticesIn;i++)
-      { gl_Position = gl_PositionIn[i].xyzw; gl_TexCoord[0] = gl_TexCoordIn[i][0]; EmitVertex(); }
-   EndPrimitive();
+	for (i = 0; i < gl_VerticesIn; i++)
+	{
+		gl_Position = gl_PositionIn[i].xyzw;
+		gl_TexCoord[0] = gl_TexCoordIn[i][0];
+		EmitVertex();
+	}
 
-   for(i=0;i<gl_VerticesIn;i++)
-      { gl_Position = gl_PositionIn[i].yxzw; gl_TexCoord[0] = gl_TexCoordIn[i][0]; EmitVertex(); }
-   EndPrimitive();
+	EndPrimitive();
 
-   for(i=0;i<gl_VerticesIn;i++)
-      { gl_Position = gl_PositionIn[i].xyzw*vec4(-1,-1,1,1); gl_TexCoord[0] = gl_TexCoordIn[i][0]; EmitVertex(); }
-   EndPrimitive();
+	for (i = 0; i < gl_VerticesIn; i++)
+	{
+		gl_Position = gl_PositionIn[i].yxzw;
+		gl_TexCoord[0] = gl_TexCoordIn[i][0];
+		EmitVertex();
+	}
 
-   for(i=0;i<gl_VerticesIn;i++)
-      { gl_Position = gl_PositionIn[i].yxzw*vec4(-1,-1,1,1); gl_TexCoord[0] = gl_TexCoordIn[i][0]; EmitVertex(); }
-   EndPrimitive();
+	EndPrimitive();
+
+	for (i = 0; i < gl_VerticesIn; i++)
+	{
+		gl_Position = gl_PositionIn[i].xyzw*vec4(-1,-1,1,1);
+		gl_TexCoord[0] = gl_TexCoordIn[i][0];
+		EmitVertex();
+	}
+
+	EndPrimitive();
+
+	for (i = 0; i < gl_VerticesIn; i++)
+	{
+		gl_Position = gl_PositionIn[i].yxzw*vec4(-1,-1,1,1);
+		gl_TexCoord[0] = gl_TexCoordIn[i][0];
+		EmitVertex();
+	}
+
+	EndPrimitive();
 }
 
+///////////////////////////////////////////////////
 @f:f
 uniform sampler2D tex0;
 uniform vec4 env[2];
 void main ()
 {
-   gl_FragColor = texture2D(tex0,gl_TexCoord[0].xy+env[0].xy)*env[1].rgba;
+	gl_FragColor = texture2D(tex0,gl_TexCoord[0].xy+env[0].xy)*env[1].rgba;
 }
+

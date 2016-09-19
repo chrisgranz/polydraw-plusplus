@@ -1,8 +1,8 @@
-   //Phong shaded drawcone() using pixel shader.. by Ken Silverman
-   //Press mouse buttons to change render mode.
-   //01/10/2011: Start DRAWCONE.KC (test program for 2-hull merge algo; O(n)
-   //01/12/2011: All works except near plane clip (ugly code though)
-   //09/10/2011: completely rewrote CPU&GPU algos (now DRAWCONE2.PSS): works bug free 1stime
+//Phong shaded drawcone() using pixel shader.. by Ken Silverman
+//Press mouse buttons to change render mode.
+//01/10/2011: Start DRAWCONE.KC (test program for 2-hull merge algo; O(n)
+//01/12/2011: All works except near plane clip (ugly code though)
+//09/10/2011: completely rewrote CPU&GPU algos (now DRAWCONE2.PSS): works bug free 1stime
 static hx, hy, hz, znear = 0.01, zfar = 1000.0;
 static ipos[3] = {0,-3,-7}, irig[3] = {1,0,0}, idow[3] = {0,1,0}, ifor[3] = {0,0,1};
 enum {DRAWCONE_NOCAP0=1,DRAWCONE_NOCAP1=2,DRAWCONE_FLAT0=4,DRAWCONE_FLAT1=8,DRAWCONE_CENT=16};
@@ -13,7 +13,7 @@ enum {DRAWCONE_NOCAP0=1,DRAWCONE_NOCAP1=2,DRAWCONE_FLAT0=4,DRAWCONE_FLAT1=8,DRAW
    {
       static tim, omousx, omousy, obstatus, zoom = 1;
       orthorotate(0,.6,0,irig,idow,ifor);
-      glswapinterval(bstatus==0); bstatus = 0;
+      //glswapinterval(bstatus==0); bstatus = 0;
    }
    otim = tim; tim = klock(); dtim = tim-otim;
 
@@ -37,6 +37,7 @@ enum {DRAWCONE_NOCAP0=1,DRAWCONE_NOCAP1=2,DRAWCONE_FLAT0=4,DRAWCONE_FLAT1=8,DRAW
       ipos[1] += (vx*irig[1] + vy*idow[1] + vz*ifor[1])*f;
       ipos[2] += (vx*irig[2] + vy*idow[2] + vz*ifor[2])*f;
    }
+
    if (keystatus[0x37]) zoom *= pow(2/1,dtim);
    if (keystatus[0xb5]) zoom *= pow(1/2,dtim);
 

@@ -18,6 +18,9 @@
     <ClInclude Include="..\include\eval.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\PolyDraw.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\eval.cpp">
@@ -27,6 +30,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\source\PolyDraw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EvalBindings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

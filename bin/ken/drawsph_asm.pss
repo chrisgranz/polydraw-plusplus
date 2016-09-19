@@ -24,7 +24,7 @@
 	}
 }
 
-drawsph (cx, cy, cz, cr)
+drawsph(cx, cy, cz, cr)
 {
 	k0 = cz^2 - cr^2; k2 = 1/k0;
 	k1 = cx^2 + cy^2;
@@ -53,11 +53,13 @@ drawsph (cx, cy, cz, cr)
 	glProgramEnvParam(0,1/sqrt(3),-1/sqrt(3),-1/sqrt(3),1/cr);
 	glProgramEnvParam(1,cx,cy,cz,k0+k1);
 	glBegin(GL_TRIANGLE_FAN);
-	for(i=0;i<ncur;i++)
+
+	for (i=0;i<ncur;i++)
 	{
 		c = clut[i]*u; s = slut[i]*v;
 		glVertex((x+dx*c+dy*s)*z,(y+dy*c-dx*s)*z,z);
 	}
+
 	glEnd();
 }
 
