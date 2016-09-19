@@ -74,7 +74,9 @@ static shadprogi_t s_ShaderProgramsI[MAX_SHADER_PROGRAMS]; // remember linkages
 
 GLint g_Queries[1];
 
-static char* s_ProgramName = "PolyDraw++";
+const char* s_ProgramName = "PolyDraw++";
+const char* s_AppClassName = "PolyDrawAppWindow";
+
 static int s_oxres = 0;
 static int s_oyres = 0;
 static int s_xres;
@@ -2265,9 +2267,11 @@ static void ResetWindows(int cmdshow)
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &rw, 0);
 		int x = ((rw.right - rw.left - s_xres) >> 1) + rw.left;
 		int y = ((rw.bottom - rw.top - s_yres) >> 1) + rw.top;
-		s_HWndMain = CreateWindow("PolyDraw", s_ProgramName,
+
+		s_HWndMain = CreateWindow(s_AppClassName, s_ProgramName,
 			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SIZEBOX,
 			x, y, s_xres, s_yres, 0, 0, s_HInst, 0); //|WS_VISIBLE|WS_POPUPWINDOW|WS_CAPTION
+
 		ShowWindow(s_HWndMain, cmdshow);
 	}
 
@@ -2332,7 +2336,7 @@ static void ResetWindows(int cmdshow)
 	if (s_HWndRender)
 		MoveWindow(s_HWndRender, x0[0], y0[0], x1[0], y1[0], 1);
 	else
-		s_HWndRender = CreateWindowEx(0, "PolyDraw", "Render", WS_VISIBLE | WS_CHILD, x0[0], y0[0], x1[0], y1[0], s_HWndMain, (HMENU)100, s_HInst, 0);
+		s_HWndRender = CreateWindowEx(0, s_AppClassName, "Render", WS_VISIBLE | WS_CHILD, x0[0], y0[0], x1[0], y1[0], s_HWndMain, (HMENU)100, s_HInst, 0);
 
 	if (s_HWndConsole)
 		MoveWindow(s_HWndConsole, x0[1], y0[1], x1[1], y1[1], 1);
@@ -2656,12 +2660,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void EnableOpenGL(HWND hWnd, HDC* hDC, HGLRC* hRC)
+static void EnableOpenGL(HWND hWnd, HDC& hDC, HGLRC& hRC)
 {
 	PIXELFORMATDESCRIPTOR pfd;
-	int format;
 
-	*hDC = GetDC(hWnd);
+	hDC = GetDC(hWnd);
 
 	ZeroMemory(&pfd, sizeof(pfd));
 	pfd.nSize = sizeof(pfd);
@@ -2671,11 +2674,11 @@ static void EnableOpenGL(HWND hWnd, HDC* hDC, HGLRC* hRC)
 	pfd.cColorBits = 24;
 	pfd.cDepthBits = 16;
 	pfd.iLayerType = PFD_MAIN_PLANE;
-	format = ChoosePixelFormat(*hDC, &pfd);
-	SetPixelFormat(*hDC, format, &pfd);
+	int format = ChoosePixelFormat(hDC, &pfd);
+	SetPixelFormat(hDC, format, &pfd);
 
-	*hRC = wglCreateContext(*hDC);
-	wglMakeCurrent(*hDC,*hRC);
+	hRC = wglCreateContext(hDC);
+	wglMakeCurrent(hDC, hRC);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2739,6 +2742,58 @@ static int cmdline2arg(char* cmdline, char** argv)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+static HACCEL RegisterResources(HINSTANCE hInstance)
+{
+	s_HInst = hInstance;
+
+	const char resourceName[] = "PolyDrawApp";
+	HACCEL hAccTable = LoadAccelerators(hInstance, resourceName);
+
+	// register our main window class
+	{
+		WNDCLASS wndClass;
+		wndClass.style = CS_OWNDC; //CS_HREDRAW | CS_VREDRAW;
+		wndClass.lpfnWndProc = WndProc;
+		wndClass.cbClsExtra = 0;
+		wndClass.cbWndExtra = 0;
+		wndClass.hInstance = s_HInst;
+		wndClass.hIcon = LoadIcon(0, IDI_APPLICATION);
+		wndClass.hCursor = LoadCursor(0, IDC_ARROW);
+		wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wndClass.lpszMenuName = resourceName;
+		wndClass.lpszClassName = s_AppClassName;
+
+		if (!::RegisterClass(&wndClass))
+			::exit(FALSE);
+	}
+
+	// register find/replace message
+	{
+		s_FindMsg = RegisterWindowMessage(FINDMSGSTRING);
+
+		if (!s_FindMsg)
+			::exit(FALSE);
+
+		s_FindText[0] = 0;
+		s_ReplaceText[0] = 0;
+
+		s_FindReplaceInfo.lStructSize = sizeof(s_FindReplaceInfo);
+		s_FindReplaceInfo.hwndOwner = s_HWndMain;
+		s_FindReplaceInfo.hInstance = s_HInst;
+		s_FindReplaceInfo.Flags = FR_DOWN;
+		s_FindReplaceInfo.lpstrFindWhat = s_FindText;
+		s_FindReplaceInfo.lpstrReplaceWith = s_ReplaceText;
+		s_FindReplaceInfo.wFindWhatLen = sizeof(s_FindText);
+		s_FindReplaceInfo.wReplaceWithLen = sizeof(s_ReplaceText);
+		s_FindReplaceInfo.lCustData = 0;
+		s_FindReplaceInfo.lpfnHook = 0;
+		s_FindReplaceInfo.lpTemplateName = 0;
+	}
+
+	return hAccTable;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	if (LoadLibrary("SciLexer.dll") == nullptr)
@@ -2746,11 +2801,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		MessageBox(s_HWndMain, "Loading Scintilla DLL failed.  Make sure SciLexer.dll is available.", s_ProgramName, MB_OK);
 		return 1;
 	}
-
-	WNDCLASS wc;
-	MSG msg;
-	HDC hDC;
-	HGLRC hRC;
 
 	__int64 q = 0I64, qlast = 0I64;
 	int qnum = 0;
@@ -2853,20 +2903,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 	}
 
-	s_HInst = hInstance;
-
-	wc.style = CS_OWNDC;
-	wc.lpfnWndProc = WndProc;
-	wc.cbClsExtra = 0;
-	wc.cbWndExtra = 0;
-	wc.hInstance = hInstance;
-	wc.hIcon = LoadIcon(0, IDI_APPLICATION);
-	wc.hCursor = LoadCursor(0, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-	wc.lpszMenuName = 0;
-	wc.lpszClassName = "PolyDraw";
-	RegisterClass(&wc);
-
 	//if (osvi.dwPlatformId < 2) textsiz = 32768;/*<NT*/ else textsiz = 65536;
 	s_TextSize = 65536;
 	s_Text = (char*)malloc(s_TextSize); if (!s_Text) { MessageBox(s_HWndMain,"malloc failed",s_ProgramName,MB_OK); return 1; }
@@ -2874,19 +2910,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	s_TText = (char*)malloc(s_TextSize); if (!s_TText) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
 	s_Line = (char*)malloc(s_TextSize); if (!s_Line) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
 	s_BadLineBits = (char*)malloc((s_TextSize + 7) >> 3); if (!s_BadLineBits) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
-
 	memset(s_BadLineBits, 0, (s_TextSize + 7) >> 3);
+
+	auto hAccTable = RegisterResources(hInstance);
 
 	ResetWindows(nCmdShow);
 
 	s_HFont = CreateFont(s_popts.fontheight, s_popts.fontwidth, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, s_popts.fontname);
 	SendMessage(s_HWndConsole, WM_SETFONT, (WPARAM)s_HFont, 0);
-	SendMessage(s_HWndEditor, WM_SETFONT, (WPARAM)s_HFont, 0);
-	//SendMessage(hWndLine, WM_SETFONT, (WPARAM)hfont, 0);
+	//SendMessage(s_HWndEditor, WM_SETFONT, (WPARAM)s_HFont, 0); // FIXME: use message for Scintilla editor
 
 	//Use MF_POPUP for top entries
 	//Use MF_END for last (top or pulldown) entry
 	//MF_GRAYED|MF_DISABLED|4=right_justify|MF_CHECKED|MF_MENUBARBREAK|MF_MENUBREAK|MF_OWNERDRAW
+	/*
 	{
 		short sbuf[4096];
 		short* sptr;
@@ -2923,13 +2960,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		s_HMenu = LoadMenuIndirect(sbuf);
 		SetMenu(s_HWndMain, s_HMenu);
 	}
+	*/
 
 	// create OpenGL context
-	EnableOpenGL(s_HWndRender, &hDC, &hRC);
+	HDC hDC;
+	HGLRC hRC;
+
+	EnableOpenGL(s_HWndRender, hDC, hRC);
 
 	// initialize GLEW extension handler
 	glewExperimental = GL_TRUE;
-	glewInit();
+
+	if (glewInit() != GLEW_OK)
+	{
+		MessageBox(s_HWndMain, "OpenGL failed to initialize", s_ProgramName, MB_OK);
+		return 1;
+	}
 
 	// FIXME: check for minimum OpenGL version here
 
@@ -2942,6 +2988,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	kputs((const char*)glGetString(GL_VERSION), 1);
 	kputs("GLSL Version:     ", 0);
 	kputs((const char*)glGetString(GL_SHADING_LANGUAGE_VERSION /* 0x8B8C */), 1);
+	kputs("GLEW Version:     ", 0);
+	kputs((const char*)glewGetString(GLEW_VERSION), 1);
 
 	// load a default file
 	NewFile(2);
@@ -3000,9 +3048,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	QueryPerformanceCounter((LARGE_INTEGER*)&g_qtim0);
 
 	printg_init();
-	//CreateEmptyTexture(0,32,32,1,KGL_BGRA32); //avoid harmless gl error at glUniform1i(..("tex0")..,0)
 
-	while (1)
+	MSG msg;
+	msg.wParam = 0;
+
+	while (true)
 	{
 		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
 		{
@@ -3011,6 +3061,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 			if (s_HWndFind && IsWindow(s_HWndFind) && IsDialogMessage(s_HWndFind, &msg))
 				continue; // Needed for FindText/ReplaceText (keyboard shortcuts)
+
+			if (TranslateAccelerator(s_HWndMain, hAccTable, &msg))
+				continue;
 
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
