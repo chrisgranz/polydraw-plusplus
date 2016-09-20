@@ -1,66 +1,69 @@
-
+// Microsoft Visual C++ generated resource script.
+//
 #include <windows.h>
+
 #include "resource.h"
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
-//	MENU_FILENEW = 0, MENU_FILEOPEN = MENU_FILENEW + 4, MENU_FILESAVE, MENU_FILESAVEAS, MENU_FILEEXIT,
-//	MENU_EDITFIND, MENU_EDITFINDNEXT, MENU_EDITFINDPREV, MENU_EDITREPLACE,
-//	MENU_COMPCONTENT, MENU_EVALHIGHLIGHT, MENU_RENDPLC, MENU_FULLSCREEN = MENU_RENDPLC + 4, MENU_CLEARBUFFER, MENU_FONT,
-//	MENU_HELPABOUT
 
-
-PolyDrawApp MENU DISCARDABLE 
+POLYDRAWAPP MENU
 BEGIN
     POPUP "&File"
     BEGIN
-		POPUP "&New"
-		BEGIN
-			MENUITEM "&Blank",                          IDM_FILE_NEW_BLANK
-			MENUITEM "GLSL (&minimal)",                 IDM_FILE_NEW_GLSL_MINIMAL
-			MENUITEM "&GLSL\tCtrl+N",                   IDM_FILE_NEW_GLSL
-			MENUITEM "&ARB ASM",                        IDM_FILE_NEW_ARB_ASM
-		END
-        MENUITEM "&Open...\tCtrl+O",                    IDM_FILE_OPEN
-        MENUITEM "&Save\tCtrl+S",                       IDM_FILE_SAVE
-        MENUITEM "Save &As...",                         IDM_FILE_SAVEAS
-        MENUITEM "E&xit",                               IDM_FILE_EXIT
+        POPUP "&New"
+        BEGIN
+            MENUITEM "&Blank",                      IDM_FILE_NEW_BLANK
+            MENUITEM "GLSL (&minimal)",             IDM_FILE_NEW_GLSL_MINIMAL
+            MENUITEM "&GLSL\tCtrl+N",               IDM_FILE_NEW_GLSL
+            MENUITEM "&ARB ASM",                    IDM_FILE_NEW_ARB_ASM
+        END
+        MENUITEM "&Open...\tCtrl+O",            IDM_FILE_OPEN
+        MENUITEM "&Save\tCtrl+S",               IDM_FILE_SAVE
+        MENUITEM "Save &As...",                 IDM_FILE_SAVEAS
+        MENUITEM "E&xit",                       IDM_FILE_EXIT
     END
     POPUP "&Edit"
     BEGIN
-        MENUITEM "&Undo\tCtrl+Z",                       IDM_EDIT_UNDO
-        MENUITEM "&Redo\tCtrl+Y",                       IDM_EDIT_REDO
+        MENUITEM "&Undo\tCtrl+Z",               IDM_EDIT_UNDO
+        MENUITEM "&Redo\tCtrl+Y",               IDM_EDIT_REDO
         MENUITEM SEPARATOR
-        MENUITEM "Cu&t\tCtrl+X",                        IDM_EDIT_CUT
-        MENUITEM "&Copy\tCtrl+C",                       IDM_EDIT_COPY
-        MENUITEM "&Paste\tCtrl+V",                      IDM_EDIT_PASTE
-        MENUITEM "&Delete\tDel",                        IDM_EDIT_DELETE
-        MENUITEM "Select A&ll\tCtrl+A",                 IDM_EDIT_SELECTALL
-		MENUITEM SEPARATOR
-		MENUITEM "&Find...\tCtrl+F",                    IDM_EDIT_FIND
-		MENUITEM "Find &Next\tF3",                      IDM_EDIT_FIND_NEXT
-		MENUITEM "Find &Previous\tShift+F3",            IDM_EDIT_FIND_PREVIOUS
-		MENUITEM "&Replace...\tCtrl+R",                 IDM_EDIT_REPLACE
+        MENUITEM "Cu&t\tCtrl+X",                IDM_EDIT_CUT
+        MENUITEM "&Copy\tCtrl+C",               IDM_EDIT_COPY
+        MENUITEM "&Paste\tCtrl+V",              IDM_EDIT_PASTE
+        MENUITEM "&Delete\tDel",                IDM_EDIT_DELETE
+        MENUITEM "Select A&ll\tCtrl+A",         IDM_EDIT_SELECTALL
+        MENUITEM SEPARATOR
+        MENUITEM "&Find...\tCtrl+F",            IDM_EDIT_FIND
+        MENUITEM "Find &Next\tF3",              IDM_EDIT_FIND_NEXT
+        MENUITEM "Find &Previous\tShift+F3",    IDM_EDIT_FIND_PREVIOUS
+        MENUITEM "&Replace...\tCtrl+R",         IDM_EDIT_REPLACE
     END
-	POPUP "&Options"
-	BEGIN
-		MENUITEM "&Fullscreen\tAlt+Enter",              IDM_OPTIONS_FULLSCREEN
-		POPUP "&Layout"
-		BEGIN
-			MENUITEM "Render Top Left",                 IDM_OPTIONS_LAYOUT_RENDER_TOP_LEFT
-			MENUITEM "Render Top Right",                IDM_OPTIONS_LAYOUT_RENDER_TOP_RIGHT
-			MENUITEM "Render Bottom Left",              IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_LEFT
-			MENUITEM "Render Bottom Right",             IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_RIGHT
-		END
-		MENUITEM "Clear &Display Each Frame",           IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME
-		MENUITEM "&Compile On Ctrl+Enter",              IDM_OPTIONS_COMPILE_ON_CTRL_ENTER
-	END
-	POPUP "&Help"
-	BEGIN
-		MENUITEM "&About",                              IDM_HELP_ABOUT
-	END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "&Fullscreen\tAlt+Enter",      IDM_OPTIONS_FULLSCREEN
+        POPUP "&Layout"
+        BEGIN
+            MENUITEM "Render Top Left",             IDM_OPTIONS_LAYOUT_RENDER_TOP_LEFT
+            MENUITEM "Render Top Right",            IDM_OPTIONS_LAYOUT_RENDER_TOP_RIGHT
+            MENUITEM "Render Bottom Left",          IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_LEFT
+            MENUITEM "Render Bottom Right",         IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_RIGHT
+        END
+        MENUITEM "Clear &Display Each Frame",   IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME
+        MENUITEM "&Compile On Ctrl+Enter",      IDM_OPTIONS_COMPILE_ON_CTRL_ENTER
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About",                      IDM_HELP_ABOUT
+    END
 END
 
 
@@ -69,21 +72,62 @@ END
 // Accelerator
 //
 
-PolyDrawApp ACCELERATORS DISCARDABLE
+POLYDRAWAPP ACCELERATORS
 BEGIN
-    "A",            IDM_EDIT_SELECTALL,      VIRTKEY, CONTROL
-    "C",            IDM_EDIT_COPY,           VIRTKEY, CONTROL
-    "N",            IDM_FILE_NEW_GLSL,       VIRTKEY, CONTROL
-    "O",            IDM_FILE_OPEN,           VIRTKEY, CONTROL
-    "S",            IDM_FILE_SAVE,           VIRTKEY, CONTROL
-    "V",            IDM_EDIT_PASTE,          VIRTKEY, CONTROL
-    VK_DELETE,      IDM_EDIT_DELETE,         VIRTKEY
-    "X",            IDM_EDIT_CUT,            VIRTKEY, CONTROL
-    "Y",            IDM_EDIT_REDO,           VIRTKEY, CONTROL
-    "Z",            IDM_EDIT_UNDO,           VIRTKEY, CONTROL
-	"F",            IDM_EDIT_FIND,           VIRTKEY, CONTROL
-	VK_F3,          IDM_EDIT_FIND_NEXT,      VIRTKEY
-	VK_F3,          IDM_EDIT_FIND_PREVIOUS,  VIRTKEY, SHIFT
-	"R",            IDM_EDIT_REPLACE,        VIRTKEY, CONTROL
+    "C",            IDM_EDIT_COPY,          VIRTKEY, CONTROL, NOINVERT
+    "X",            IDM_EDIT_CUT,           VIRTKEY, CONTROL, NOINVERT
+    VK_DELETE,      IDM_EDIT_DELETE,        VIRTKEY, NOINVERT
+    "F",            IDM_EDIT_FIND,          VIRTKEY, CONTROL, NOINVERT
+    VK_F3,          IDM_EDIT_FIND_NEXT,     VIRTKEY, NOINVERT
+    VK_F3,          IDM_EDIT_FIND_PREVIOUS, VIRTKEY, SHIFT, NOINVERT
+    "V",            IDM_EDIT_PASTE,         VIRTKEY, CONTROL, NOINVERT
+    "Y",            IDM_EDIT_REDO,          VIRTKEY, CONTROL, NOINVERT
+    "R",            IDM_EDIT_REPLACE,       VIRTKEY, CONTROL, NOINVERT
+    "A",            IDM_EDIT_SELECTALL,     VIRTKEY, CONTROL, NOINVERT
+    "Z",            IDM_EDIT_UNDO,          VIRTKEY, CONTROL, NOINVERT
+    "N",            IDM_FILE_NEW_GLSL,      VIRTKEY, CONTROL, NOINVERT
+    "O",            IDM_FILE_OPEN,          VIRTKEY, CONTROL, NOINVERT
+    "S",            IDM_FILE_SAVE,          VIRTKEY, CONTROL, NOINVERT
+    VK_RETURN,      IDM_OPTIONS_FULLSCREEN, VIRTKEY, ALT, NOINVERT
 END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
 

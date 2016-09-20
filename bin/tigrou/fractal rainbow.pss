@@ -4,7 +4,6 @@ t = klock();
 glcolor(t * 1000,t,0);
 glquad();
 
-
 @v: =========================================
 
 varying vec4 p, t, color;
@@ -20,7 +19,6 @@ void main()
 @f: =========================================
 
 varying vec4 p, t, color;
-
 
 void main()
 {

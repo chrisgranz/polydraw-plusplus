@@ -17,8 +17,19 @@
 #include "PolyDraw.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////
-static char* gbmp = 0;
-static int gbmpmal = 0;
+// Shadow copies of variables for binding.  Use SetEvalVars() to set them for
+// the script (this keeps script from modifying real globals).
+///////////////////////////////////////////////////////////////////////////////
+static double s_dxres;
+static double s_dyres;
+static double s_dmousx;
+static double s_dmousy;
+static double s_dbstatus;
+static double s_dkeystatus[256];
+
+///////////////////////////////////////////////////////////////////////////////
+static char* s_bmp = 0;
+static int s_bmpmal = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // glu32.lib replacements..
@@ -35,12 +46,14 @@ void mygluLookAt(double px, double py, double pz, double fx, double fy, double f
 	double t, r[3], d[3], f[3], mat[16];
 
 	f[0] = px-fx; f[1] = py-fy; f[2] = pz-fz;
-	t = 1.0/sqrt(f[0]*f[0] + f[1]*f[1] + f[2]*f[2]); f[0] *= t; f[1] *= t; f[2] *= t;
+	t = 1.0/sqrt(f[0]*f[0] + f[1]*f[1] + f[2]*f[2]);
+	f[0] *= t; f[1] *= t; f[2] *= t;
 
 	r[0] = f[2]*uy - f[1]*uz;
 	r[1] = f[0]*uz - f[2]*ux;
 	r[2] = f[1]*ux - f[0]*uy;
-	t = 1.0/sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2]); r[0] *= t; r[1] *= t; r[2] *= t;
+	t = 1.0/sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2]);
+	r[0] *= t; r[1] *= t; r[2] *= t;
 
 	d[0] = f[1]*r[2] - f[2]*r[1];
 	d[1] = f[2]*r[0] - f[0]*r[2];
@@ -189,9 +202,9 @@ static double noise1d(double fx)
 	float p[1], t[1], f[2];
 
 	dtol(fx - 0.5, &l[0]);
-	p[0] = fx - ((float)l[0]);
+	p[0] = (float)fx - ((float)l[0]);
 	l[0] &= 255;
-	t[0] = (3.0 - 2.0*p[0])*p[0] * p[0];
+	t[0] = (3.0f - 2.0f*p[0])*p[0] * p[0];
 	f[0] = fgrad(s_Noisep[s_Noisep[s_Noisep[l[0]]]], p[0], 0, 0);
 	f[1] = fgrad(s_Noisep[s_Noisep[s_Noisep[l[0] + 1]]], p[0] - 1, 0, 0);
 
@@ -203,8 +216,8 @@ static double noise2d(double fx, double fy)
 {
 	int i, l[2], a[4];
 	float p[2], t[2], f[4];
-	dtol(fx - .5, &l[0]); p[0] = fx - ((float)l[0]); l[0] &= 255; t[0] = (3.0 - 2.0*p[0])*p[0] * p[0];
-	dtol(fy - .5, &l[1]); p[1] = fy - ((float)l[1]); l[1] &= 255; t[1] = (3.0 - 2.0*p[1])*p[1] * p[1];
+	dtol(fx - 0.5, &l[0]); p[0] = (float)fx - ((float)l[0]); l[0] &= 255; t[0] = ((3.0f - 2.0f*p[0])*p[0] * p[0]);
+	dtol(fy - 0.5, &l[1]); p[1] = (float)fy - ((float)l[1]); l[1] &= 255; t[1] = ((3.0f - 2.0f*p[1])*p[1] * p[1]);
 	i = s_Noisep[l[0]]; a[0] = s_Noisep[i + l[1]]; a[2] = s_Noisep[i + l[1] + 1];
 	i = s_Noisep[l[0] + 1]; a[1] = s_Noisep[i + l[1]]; a[3] = s_Noisep[i + l[1] + 1];
 	f[0] = fgrad(s_Noisep[a[0]], p[0], p[1], 0);
@@ -222,9 +235,9 @@ static double noise3d(double fx, double fy, double fz)
 	int i, l[3], a[4];
 	float p[3], t[3], f[8];
 
-	dtol(fx - .5, &l[0]); p[0] = fx - ((float)l[0]); l[0] &= 255; t[0] = (3.0 - 2.0*p[0])*p[0] * p[0];
-	dtol(fy - .5, &l[1]); p[1] = fy - ((float)l[1]); l[1] &= 255; t[1] = (3.0 - 2.0*p[1])*p[1] * p[1];
-	dtol(fz - .5, &l[2]); p[2] = fz - ((float)l[2]); l[2] &= 255; t[2] = (3.0 - 2.0*p[2])*p[2] * p[2];
+	dtol(fx - .5, &l[0]); p[0] = (float)fx - ((float)l[0]); l[0] &= 255; t[0] = (3.0f - 2.0f*p[0])*p[0] * p[0];
+	dtol(fy - .5, &l[1]); p[1] = (float)fy - ((float)l[1]); l[1] &= 255; t[1] = (3.0f - 2.0f*p[1])*p[1] * p[1];
+	dtol(fz - .5, &l[2]); p[2] = (float)fz - ((float)l[2]); l[2] &= 255; t[2] = (3.0f - 2.0f*p[2])*p[2] * p[2];
 	i = s_Noisep[l[0]]; a[0] = s_Noisep[i + l[1]]; a[2] = s_Noisep[i + l[1] + 1];
 	i = s_Noisep[l[0] + 1]; a[1] = s_Noisep[i + l[1]]; a[3] = s_Noisep[i + l[1] + 1];
 	f[0] = fgrad(s_Noisep[a[0] + l[2]], p[0], p[1], p[2]);
@@ -265,7 +278,7 @@ double __cdecl qglAlphaDisable(double d)
 double __cdecl qglQuad(double alpha)
 {
 	glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
-	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, g_RenderWidth, g_RenderHeight, 0, -1, 1);
+	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, s_dxres, s_dyres, 0, -1, 1);
 	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
 	glDisable(GL_DEPTH_TEST);
@@ -275,9 +288,9 @@ double __cdecl qglQuad(double alpha)
 
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 1); glVertex2f(0, 0);
-	glTexCoord2f(1, 1); glVertex2f(g_RenderWidth, 0);
-	glTexCoord2f(1, 0); glVertex2f(g_RenderWidth, g_RenderHeight);
-	glTexCoord2f(0, 0); glVertex2f(0, g_RenderHeight);
+	glTexCoord2f(1, 1); glVertex2f(s_dxres, 0);
+	glTexCoord2f(1, 0); glVertex2f(s_dxres, s_dyres);
+	glTexCoord2f(0, 0); glVertex2f(0, s_dxres);
 	glEnd();
 
 	glMatrixMode(GL_PROJECTION); glPopMatrix();
@@ -297,17 +310,17 @@ double __cdecl kglsetshader3(char* st0, char* st1, char* st2)
 {
 	int j, shi[3] = { -1, -1, -1 };
 
-	for (decltype(g_TSec.size()) i = 0; i < g_TSec.size(); i++)
+	for (decltype(g_TextSections.size()) i = 0; i < g_TextSections.size(); i++)
 	{
-		j = ((int)g_TSec[i].type) - 1;
+		j = ((int)g_TextSections[i].type) - 1;
 
 		if (j < 0)
 			continue;
 
-		if ((j == 0 && !_stricmp(g_TSec[i].name, st0))
-		  || (j == 1 && !_stricmp(g_TSec[i].name, st1))
-		  || (j == 2 && !_stricmp(g_TSec[i].name, st2)))
-			shi[j] = g_TSec[i].count;
+		if ((j == 0 && !_stricmp(g_TextSections[i].name, st0))
+		  || (j == 1 && !_stricmp(g_TextSections[i].name, st1))
+		  || (j == 2 && !_stricmp(g_TextSections[i].name, st2)))
+			shi[j] = g_TextSections[i].count;
 	}
 
 	return setshader_int(shi[0], shi[1], shi[2]);
@@ -334,50 +347,50 @@ void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype)
 {
 	int i, internalFormat, format, type;
 
-	g_Textures[itex].tar = GL_TEXTURE_3D;
+	g_Textures[itex].target = GL_TEXTURE_3D;
 
 	if (zs == 1)
 	{
-		g_Textures[itex].tar = GL_TEXTURE_2D;
+		g_Textures[itex].target = GL_TEXTURE_2D;
 
 		if (xs*6 == ys)
 		{
-			g_Textures[itex].tar = GL_TEXTURE_CUBE_MAP;
+			g_Textures[itex].target = GL_TEXTURE_CUBE_MAP;
 			icoltype = (icoltype&~0xf00) | KGL_CLAMP_TO_EDGE;
 
 			if ((icoltype&0xf0) >= KGL_MIPMAP)
 				icoltype = (icoltype&~0xf0) | KGL_LINEAR;
 		}
 		else if (ys == 1)
-			g_Textures[itex].tar = GL_TEXTURE_1D;
+			g_Textures[itex].target = GL_TEXTURE_1D;
 	}
 
-	g_Textures[itex].sizx = xs;
-	g_Textures[itex].sizy = ys;
-	g_Textures[itex].sizz = zs;
-	g_Textures[itex].coltype = icoltype;
+	g_Textures[itex].sizeX = xs;
+	g_Textures[itex].sizeY = ys;
+	g_Textures[itex].sizeZ = zs;
+	g_Textures[itex].colorType = icoltype;
 
-	glBindTexture(g_Textures[itex].tar, itex);
+	glBindTexture(g_Textures[itex].target, itex);
 
 	switch (icoltype & 0xf0)
 	{
 		case KGL_LINEAR: default:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			break;
 
 		case KGL_NEAREST:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			break;
 
 		case KGL_MIPMAP0: case KGL_MIPMAP1: case KGL_MIPMAP2: case KGL_MIPMAP3:
 			switch(icoltype&0xf0)
 			{
-			case KGL_MIPMAP0: glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST); break;
-			case KGL_MIPMAP1: glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); break;
-			case KGL_MIPMAP2: glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST); break;
-			case KGL_MIPMAP3: glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); break;
+			case KGL_MIPMAP0: glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST); break;
+			case KGL_MIPMAP1: glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); break;
+			case KGL_MIPMAP2: glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST); break;
+			case KGL_MIPMAP3: glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); break;
 			}
 
 			//#define GL_TEXTURE_MIN_LOD      0x813A
@@ -395,34 +408,34 @@ void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype)
 			//glTexEnvi(GL_TEXTURE_ENV,GL_MAX_TEXTURE_LOD_BIAS,-4);
 			//glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,1.0);
 
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			break;
 	}
 
 	switch (icoltype & 0xf00)
 	{
 		case KGL_REPEAT: default:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_R, GL_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_S, GL_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_R, GL_REPEAT);
 			break;
 
 		case KGL_MIRRORED_REPEAT:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_R, GL_MIRRORED_REPEAT);
 			break;
 
 		case KGL_CLAMP:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_S, GL_CLAMP);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_T, GL_CLAMP);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_R, GL_CLAMP);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_S, GL_CLAMP);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_T, GL_CLAMP);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_R, GL_CLAMP);
 			break;
 
 		case KGL_CLAMP_TO_EDGE:
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			glTexParameteri(g_Textures[itex].tar, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(g_Textures[itex].target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 			break;
 	}
 
@@ -436,17 +449,17 @@ void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype)
 		case KGL_VEC4:   internalFormat =      GL_RGBA32F_ARB; format =      GL_RGBA; type =         GL_FLOAT; break;
 	}
 
-	switch(g_Textures[itex].tar)
+	switch(g_Textures[itex].target)
 	{
-	case GL_TEXTURE_1D: glTexImage1D(g_Textures[itex].tar, 0, internalFormat, g_Textures[itex].sizx, 0, format, type, 0); break;
-	case GL_TEXTURE_2D: glTexImage2D(g_Textures[itex].tar, 0, internalFormat, g_Textures[itex].sizx, g_Textures[itex].sizy, 0, format, type, 0); break;
+	case GL_TEXTURE_1D: glTexImage1D(g_Textures[itex].target, 0, internalFormat, g_Textures[itex].sizeX, 0, format, type, 0); break;
+	case GL_TEXTURE_2D: glTexImage2D(g_Textures[itex].target, 0, internalFormat, g_Textures[itex].sizeX, g_Textures[itex].sizeY, 0, format, type, 0); break;
 	case GL_TEXTURE_3D:
-		glTexImage3D(g_Textures[itex].tar, 0, internalFormat, g_Textures[itex].sizx, g_Textures[itex].sizy, g_Textures[itex].sizz, 0, format, type, 0);
+		glTexImage3D(g_Textures[itex].target, 0, internalFormat, g_Textures[itex].sizeX, g_Textures[itex].sizeY, g_Textures[itex].sizeZ, 0, format, type, 0);
 		break;
 
 	case GL_TEXTURE_CUBE_MAP:
 		for (i = 0; i < 6; i++)
-			glTexImage2D(g_CubeMapConst[i], 0, internalFormat, g_Textures[itex].sizx, g_Textures[itex].sizx, 0, format, type, 0);
+			glTexImage2D(g_CubeMapConst[i], 0, internalFormat, g_Textures[itex].sizeX, g_Textures[itex].sizeX, 0, format, type, 0);
 
 		break;
 	}
@@ -463,7 +476,7 @@ double __cdecl qglCapture(double dcaptexsiz)
 	if (i > 0 && i <= 8192)
 		g_CapTextSize = i;
 
-	i = min(g_RenderWidth, g_RenderHeight);
+	i = (int)min(s_dxres, s_dyres);
 
 	if (i < g_CapTextSize) // FIXME:ugly hack; use FBO to support full requested size?
 	{
@@ -476,7 +489,7 @@ double __cdecl qglCapture(double dcaptexsiz)
 	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); mygluPerspective(45, 1, 0.1, 1000.0);
 	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
-	glScalef(g_RenderHeight / (float)g_RenderWidth, 1, 1);
+	glScalef((GLfloat)(s_dyres / s_dxres), 1, 1);
 	g_LastCapture = false;
 	return 0;
 }
@@ -514,14 +527,17 @@ double __cdecl kglCapture(double dtex, double xsiz, double ysiz, double dcoltype
 
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_FrameBuffer);
 
-	if (g_Textures[itex].sizx != g_CapTextSize || g_Textures[itex].sizy != g_CapTextSize || g_Textures[itex].sizz != 1 || g_Textures[itex].coltype != icoltype)
+	if (g_Textures[itex].sizeX != g_CapTextSize
+		|| g_Textures[itex].sizeY != g_CapTextSize
+		|| g_Textures[itex].sizeZ != 1
+		|| g_Textures[itex].colorType != icoltype)
 		CreateEmptyTexture(itex, xs, ys, 1, icoltype);
 
 	//tex[itex].tar = GL_TEXTURE_RECTANGLE_ARB;
 	//glTexEnvi(GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_REPLACE); //necessary?
 
 	//glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT/*0..3*/, g_Textures[itex].tar, itex, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT/*0..3*/, g_Textures[itex].target, itex, 0);
 
 	glViewport(0, 0, xs, ys);
 
@@ -548,26 +564,26 @@ double __cdecl qglEndCapture(double dtex)
 	if ((unsigned)itex >= (unsigned)MAX_USER_TEXURES)
 		return -1.0;
 
-	g_Textures[itex].nam[0] = 0;
+	g_Textures[itex].name[0] = '\0';
 
 	if (g_LastCapture)
 	{
-		glViewport(0, 0, g_RenderWidth, g_RenderHeight);
+		glViewport(0, 0, s_dxres, s_dyres);
 		glMatrixMode(GL_PROJECTION); glPopMatrix();
 		glMatrixMode(GL_MODELVIEW); glPopMatrix();
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); // restore
 		return 0.0;
 	}
 
-	if (g_Textures[itex].sizx != g_CapTextSize || g_Textures[itex].sizy != g_CapTextSize || g_Textures[itex].sizz != 1 || g_Textures[itex].coltype != KGL_BGRA32)
+	if (g_Textures[itex].sizeX != g_CapTextSize || g_Textures[itex].sizeY != g_CapTextSize || g_Textures[itex].sizeZ != 1 || g_Textures[itex].colorType != KGL_BGRA32)
 		CreateEmptyTexture(itex, g_CapTextSize, g_CapTextSize, 1, KGL_BGRA32);
 
-	glBindTexture(g_Textures[itex].tar,(int)itex);
-	glCopyTexImage2D(g_Textures[itex].tar, 0, GL_RGBA, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizy, 0);
+	glBindTexture(g_Textures[itex].target,(int)itex);
+	glCopyTexImage2D(g_Textures[itex].target, 0, GL_RGBA, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeY, 0);
 
-	g_Textures[itex].nam[0] = 0;
+	g_Textures[itex].name[0] = '\0';
 
-	glViewport(0, 0, g_RenderWidth, g_RenderHeight);
+	glViewport(0, 0, s_dxres, s_dyres);
 	glMatrixMode(GL_PROJECTION); glPopMatrix();
 	glMatrixMode(GL_MODELVIEW); glPopMatrix();
 
@@ -576,9 +592,9 @@ double __cdecl qglEndCapture(double dtex)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-double __cdecl kglsettex2(double dtex, char* st, double dcolmode)
+double __cdecl kglsettex2(double dtex, char* st, double dcoltype)
 {
-	int i, x, y, gotpic, itex, icolmode, leng, xsiz, ysiz;
+	int i, x, y, gotpic, itex, icoltype, leng, xsiz, ysiz;
 	char* buf = NULL;
 
 	itex = (int)dtex;
@@ -586,17 +602,19 @@ double __cdecl kglsettex2(double dtex, char* st, double dcolmode)
 	if ((unsigned)itex >= (unsigned)MAX_USER_TEXURES)
 		return -1.0;
 
-	icolmode = ((int)dcolmode)&~15;
+	icoltype = ((int)dcoltype) & ~15;
 
 	if (strlen(st) > MAX_PATH-1)
 		return -2.0;
 
-	if (!_stricmp(g_Textures[itex].nam, st) && g_Textures[itex].coltype == icolmode)
+	if (!_stricmp(g_Textures[itex].name, st) && g_Textures[itex].colorType == icoltype)
 		return 0.0;
 
-	strcpy(g_Textures[itex].nam, st);
+	strcpy(g_Textures[itex].name, st);
 
-	gotpic = 0; xsiz = 32; ysiz = 32;
+	gotpic = 0;
+	xsiz = 32;
+	ysiz = 32;
 
 	do
 	{
@@ -624,15 +642,15 @@ double __cdecl kglsettex2(double dtex, char* st, double dcolmode)
 	}
 	while (0);
 
-	if (g_Textures[itex].sizx != xsiz || g_Textures[itex].sizy != ysiz || g_Textures[itex].sizz != 1 || g_Textures[itex].coltype != icolmode)
-		CreateEmptyTexture(itex, xsiz, ysiz, 1, icolmode);
+	if (g_Textures[itex].sizeX != xsiz || g_Textures[itex].sizeY != ysiz || g_Textures[itex].sizeZ != 1 || g_Textures[itex].colorType != icoltype)
+		CreateEmptyTexture(itex, xsiz, ysiz, 1, icoltype);
 
 	i = xsiz*ysiz * 4;
 
-	if (i > gbmpmal)
+	if (i > s_bmpmal)
 	{
-		gbmpmal = i;
-		gbmp = (char *)realloc(gbmp, gbmpmal);
+		s_bmpmal = i;
+		s_bmp = (char *)realloc(s_bmp, s_bmpmal);
 	}
 
 	if (!gotpic)
@@ -645,7 +663,7 @@ double __cdecl kglsettex2(double dtex, char* st, double dcolmode)
 			0x00400000, 0x00200000, 0x00200600, 0x0027c600, 0x00200000, 0x00200600, 0x00400600, 0x00000000, //" :-( "
 		};
 
-		buf = gbmp;
+		buf = s_bmp;
 
 		for (y = 0; y < ysiz; y++)
 		{
@@ -657,30 +675,30 @@ double __cdecl kglsettex2(double dtex, char* st, double dcolmode)
 					continue;
 				}
 
-				*((int*)gbmp) = (((rand() << 15) + rand()) & 0x1f1f1f) + 0xff506070;
+				*((int*)s_bmp) = (((rand() << 15) + rand()) & 0x1f1f1f) + 0xff506070;
 			}
 		}
 	}
 	else
 	{
-		kprender(buf, leng, (int*)gbmp, g_Textures[itex].sizx * 4, min(xsiz, g_Textures[itex].sizx), min(ysiz, g_Textures[itex].sizy), 0, 0);
+		kprender(buf, leng, (int*)s_bmp, g_Textures[itex].sizeX * 4, min(xsiz, g_Textures[itex].sizeX), min(ysiz, g_Textures[itex].sizeY), 0, 0);
 	}
 
-	glBindTexture(g_Textures[itex].tar, itex);
+	glBindTexture(g_Textures[itex].target, itex);
 
-	switch(g_Textures[itex].tar)
+	switch(g_Textures[itex].target)
 	{
 	case GL_TEXTURE_2D:
-		glTexSubImage2D(g_Textures[itex].tar, 0, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizy, GL_BGRA_EXT, GL_UNSIGNED_BYTE, gbmp);
+		glTexSubImage2D(g_Textures[itex].target, 0, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeY, GL_BGRA_EXT, GL_UNSIGNED_BYTE, s_bmp);
 
-		if ((icolmode & 0xf0) >= KGL_MIPMAP)
-			mygluBuild2DMipmaps(g_Textures[itex].tar, 4, g_Textures[itex].sizx, g_Textures[itex].sizy, GL_BGRA_EXT, GL_UNSIGNED_BYTE, gbmp);
+		if ((icoltype & 0xf0) >= KGL_MIPMAP)
+			mygluBuild2DMipmaps(g_Textures[itex].target, 4, g_Textures[itex].sizeX, g_Textures[itex].sizeY, GL_BGRA_EXT, GL_UNSIGNED_BYTE, s_bmp);
 
 		break;
 
 	case GL_TEXTURE_CUBE_MAP:
 		for (i = 0; i < 6; i++)
-			glTexSubImage2D(g_CubeMapConst[i], 0, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizx, GL_BGRA_EXT, GL_UNSIGNED_BYTE, gbmp + g_Textures[itex].sizx*g_Textures[itex].sizx * 4 * s_CubeMapIndex[i]);
+			glTexSubImage2D(g_CubeMapConst[i], 0, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeX, GL_BGRA_EXT, GL_UNSIGNED_BYTE, s_bmp + g_Textures[itex].sizeX*g_Textures[itex].sizeX * 4 * s_CubeMapIndex[i]);
 
 		break;
 	}
@@ -713,10 +731,10 @@ double __cdecl kglgettexarray2(double dtex, double* p, double dxsiz, double dysi
 	xs = (int)dxsiz;
 	ys = (int)dysiz;
 
-	if ((xs*ys) > (g_Textures[itex].sizx*g_Textures[itex].sizy))
+	if ((xs*ys) > (g_Textures[itex].sizeX*g_Textures[itex].sizeY))
 		return -1.0;
 
-	switch(g_Textures[itex].coltype&15)
+	switch (g_Textures[itex].colorType & 15)
 	{
 	case KGL_BGRA32: evalvalperpix = 1; glbyteperpix = 4; break;
 	case KGL_CHAR:   evalvalperpix = 1; glbyteperpix = 1; break;
@@ -732,15 +750,15 @@ double __cdecl kglgettexarray2(double dtex, double* p, double dxsiz, double dysi
 
 	i = xs*ys*glbyteperpix;
 
-	if (i > gbmpmal)
+	if (i > s_bmpmal)
 	{
-		gbmpmal = i;
-		gbmp = (char*)realloc(gbmp, gbmpmal);
+		s_bmpmal = i;
+		s_bmp = (char*)realloc(s_bmp, s_bmpmal);
 	}
 
-	glBindTexture(g_Textures[itex].tar, itex);
+	glBindTexture(g_Textures[itex].target, itex);
 
-	switch(g_Textures[itex].coltype&15)
+	switch (g_Textures[itex].colorType & 15)
 	{
 	case KGL_BGRA32: internalFormat = 4; format = GL_BGRA_EXT; type = GL_UNSIGNED_BYTE; break;
 	case KGL_CHAR:   internalFormat = GL_LUMINANCE8; format = GL_LUMINANCE; type = GL_UNSIGNED_BYTE; break;
@@ -750,20 +768,20 @@ double __cdecl kglgettexarray2(double dtex, double* p, double dxsiz, double dysi
 	case KGL_VEC4:   internalFormat = GL_RGBA32F_ARB; format = GL_RGBA; type = GL_FLOAT; break;
 	}
 
-	glGetTexImage(g_Textures[itex].tar, 0, format, type, gbmp);
+	glGetTexImage(g_Textures[itex].target, 0, format, type, s_bmp);
 
 	//preferred method .. doesn't work :/
 	//glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
 	//glReadPixels(0,0,tex[itex].sizx,tex[itex].sizy,GL_BGRA_EXT,GL_UNSIGNED_BYTE,gbmp);
 
-	switch(g_Textures[itex].coltype&15)
+	switch (g_Textures[itex].colorType & 15)
 	{
-	case KGL_BGRA32: for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned int*)((i << 2) + gbmp); break;
-	case KGL_CHAR:   for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned char*)(i + gbmp); break;
-	case KGL_SHORT:  for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned short*)((i << 1) + gbmp); break;
-	case KGL_INT:    for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned int*)((i << 2) + gbmp); break;
-	case KGL_FLOAT:  for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(float*)((i << 2) + gbmp); break;
-	case KGL_VEC4:   for (i = xs*ys * 4 - 1; i >= 0; i--) p[i] = (double)*(float*)((i << 2) + gbmp); break;
+	case KGL_BGRA32: for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned int*)((i << 2) + s_bmp); break;
+	case KGL_CHAR:   for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned char*)(i + s_bmp); break;
+	case KGL_SHORT:  for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned short*)((i << 1) + s_bmp); break;
+	case KGL_INT:    for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(unsigned int*)((i << 2) + s_bmp); break;
+	case KGL_FLOAT:  for (i = xs*ys - 1; i >= 0; i--) p[i] = (double)*(float*)((i << 2) + s_bmp); break;
+	case KGL_VEC4:   for (i = xs*ys * 4 - 1; i >= 0; i--) p[i] = (double)*(float*)((i << 2) + s_bmp); break;
 	}
 
 	return 0.0;
@@ -780,7 +798,7 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 		return(-1.0);
 
 	icoltype = (int)dcoltype;
-	g_Textures[itex].nam[0] = 0;
+	g_Textures[itex].name[0] = 0;
 
 	if (dxsiz < 1.0 || dysiz < 1.0 || dzsiz < 1.0 || (dxsiz*dysiz*dzsiz) > 67108864.0)
 		return -1.0;
@@ -789,10 +807,10 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 	ys = (int)dysiz;
 	zs = (int)dzsiz;
 
-	if (g_Textures[itex].sizx != xs || g_Textures[itex].sizy != ys || g_Textures[itex].sizz != zs || g_Textures[itex].coltype != icoltype)
+	if (g_Textures[itex].sizeX != xs || g_Textures[itex].sizeY != ys || g_Textures[itex].sizeZ != zs || g_Textures[itex].colorType != icoltype)
 		CreateEmptyTexture(itex, xs, ys, zs, icoltype);
 
-	switch(icoltype&15)
+	switch (icoltype & 15)
 	{
 	case KGL_BGRA32: evalvalperpix = 1; glbyteperpix = 4; break;
 	case KGL_CHAR:   evalvalperpix = 1; glbyteperpix = 1; break;
@@ -804,29 +822,29 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 
 	i = xs*ys*zs*glbyteperpix;
 
-	if (i > gbmpmal)
+	if (i > s_bmpmal)
 	{
-		gbmpmal = i;
-		gbmp = (char *)realloc(gbmp, gbmpmal);
+		s_bmpmal = i;
+		s_bmp = (char *)realloc(s_bmp, s_bmpmal);
 	}
 
 // FIXME: gevalfunc is now not globally available
 //	if ((((int)p) < ((int)gevalfunc)) || (((int)p) + ((xs*ys*zs*evalvalperpix) << 3) > ((int)gevalfunc) + gevalfuncleng))
 //		return(-1.0);
 
-	switch (icoltype&15)
+	switch (icoltype & 15)
 	{
-	case KGL_BGRA32: for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned int *)((i << 2) + gbmp) = (unsigned int)(p[i]); break;
-	case KGL_CHAR:   for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned char *)(i + gbmp) = (unsigned char)(p[i]); break;
-	case KGL_SHORT:  for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned short *)((i << 1) + gbmp) = (unsigned short)(p[i]); break;
-	case KGL_INT:    for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned int *)((i << 2) + gbmp) = (unsigned int)(p[i]); break;
-	case KGL_FLOAT:  for (i = xs*ys*zs - 1; i >= 0; i--) *(float *)((i << 2) + gbmp) = (float)(p[i]); break;
-	case KGL_VEC4:   for (i = xs*ys*zs * 4 - 1; i >= 0; i--) *(float *)((i << 2) + gbmp) = (float)(p[i]); break;
+	case KGL_BGRA32: for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned int *)((i << 2) + s_bmp) = (unsigned int)(p[i]); break;
+	case KGL_CHAR:   for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned char *)(i + s_bmp) = (unsigned char)(p[i]); break;
+	case KGL_SHORT:  for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned short *)((i << 1) + s_bmp) = (unsigned short)(p[i]); break;
+	case KGL_INT:    for (i = xs*ys*zs - 1; i >= 0; i--) *(unsigned int *)((i << 2) + s_bmp) = (unsigned int)(p[i]); break;
+	case KGL_FLOAT:  for (i = xs*ys*zs - 1; i >= 0; i--) *(float *)((i << 2) + s_bmp) = (float)(p[i]); break;
+	case KGL_VEC4:   for (i = xs*ys*zs * 4 - 1; i >= 0; i--) *(float *)((i << 2) + s_bmp) = (float)(p[i]); break;
 	}
 
-	glBindTexture(g_Textures[itex].tar, itex);
+	glBindTexture(g_Textures[itex].target, itex);
 
-	switch (icoltype&15)
+	switch (icoltype & 15)
 	{
 	case KGL_BGRA32: internalFormat = 4; format = GL_BGRA_EXT; type = GL_UNSIGNED_BYTE; break;
 	case KGL_CHAR:   internalFormat = GL_LUMINANCE8; format = GL_LUMINANCE; type = GL_UNSIGNED_BYTE; break;
@@ -836,27 +854,27 @@ double __cdecl kglsettexarray3(double dtex, double *p, double dxsiz, double dysi
 	case KGL_VEC4:   internalFormat = GL_RGBA32F_ARB; format = GL_RGBA; type = GL_FLOAT; break;
 	}
 
-	switch(g_Textures[itex].tar)
+	switch (g_Textures[itex].target)
 	{
 	case GL_TEXTURE_1D:
-		glTexSubImage1D(g_Textures[itex].tar, 0, 0, g_Textures[itex].sizx, format, type, gbmp);
+		glTexSubImage1D(g_Textures[itex].target, 0, 0, g_Textures[itex].sizeX, format, type, s_bmp);
 		break;
 
 	case GL_TEXTURE_2D:
-		glTexSubImage2D(g_Textures[itex].tar, 0, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizy, format, type, gbmp);
+		glTexSubImage2D(g_Textures[itex].target, 0, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeY, format, type, s_bmp);
 
 		if ((icoltype & 0xf0) >= KGL_MIPMAP && (icoltype & 15) == KGL_BGRA32)
-			mygluBuild2DMipmaps(g_Textures[itex].tar, 4, g_Textures[itex].sizx, g_Textures[itex].sizy, GL_BGRA_EXT, GL_UNSIGNED_BYTE, gbmp);
+			mygluBuild2DMipmaps(g_Textures[itex].target, 4, g_Textures[itex].sizeX, g_Textures[itex].sizeY, GL_BGRA_EXT, GL_UNSIGNED_BYTE, s_bmp);
 
 		break;
 
 	case GL_TEXTURE_3D:
-		glTexSubImage3D(g_Textures[itex].tar, 0, 0, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizy, g_Textures[itex].sizz, format, type, gbmp);
+		glTexSubImage3D(g_Textures[itex].target, 0, 0, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeY, g_Textures[itex].sizeZ, format, type, s_bmp);
 		break;
 
 	case GL_TEXTURE_CUBE_MAP:
 		for (i = 0; i < 6; i++)
-			glTexSubImage2D(g_CubeMapConst[i], 0, 0, 0, g_Textures[itex].sizx, g_Textures[itex].sizx, format, type, gbmp + g_Textures[itex].sizx*g_Textures[itex].sizx*glbyteperpix*s_CubeMapIndex[i]);
+			glTexSubImage2D(g_CubeMapConst[i], 0, 0, 0, g_Textures[itex].sizeX, g_Textures[itex].sizeX, format, type, s_bmp + g_Textures[itex].sizeX*g_Textures[itex].sizeX*glbyteperpix*s_CubeMapIndex[i]);
 
 		break;
 	}
@@ -876,7 +894,7 @@ double __cdecl qglBindTex(double dtex)
 	if ((unsigned)itex >= (unsigned)MAX_USER_TEXURES)
 		return -1.0;
 
-	glBindTexture(g_Textures[itex].tar, itex);
+	glBindTexture(g_Textures[itex].target, itex);
 	return 0;
 }
 
@@ -912,7 +930,7 @@ double __cdecl qgluLookAt(double x, double y, double z, double px, double py, do
 ///////////////////////////////////////////////////////////////////////////////
 double ksetfov(double fov)
 {
-	return SetFOV(fov, g_RenderWidth, g_RenderHeight);
+	return SetFOV(fov, s_dxres, s_dyres);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -972,7 +990,8 @@ double kglUniform1fv(double sh, double num, double *vals)
 ///////////////////////////////////////////////////////////////////////////////
 double kglUniform2fv(double sh, double num, double *vals)
 {
-	int i, inum; float *fvals;
+	int i, inum;
+	float* fvals;
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for (i = 0; i < inum; i++) fvals[i] = (float)vals[i];
@@ -982,7 +1001,8 @@ double kglUniform2fv(double sh, double num, double *vals)
 ///////////////////////////////////////////////////////////////////////////////
 double kglUniform3fv(double sh, double num, double *vals)
 {
-	int i, inum; float *fvals;
+	int i, inum;
+	float* fvals;
 	inum = min((int)num, MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for (i = 0; i < inum; i++) fvals[i] = (float)vals[i];
@@ -993,7 +1013,8 @@ double kglUniform3fv(double sh, double num, double *vals)
 ///////////////////////////////////////////////////////////////////////////////
 double kglUniform4fv(double sh, double num, double *vals)
 {
-	int i, inum; float *fvals;
+	int i, inum;
+	float* fvals;
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	fvals = (float *)_alloca(inum*sizeof(fvals[0])); if (!fvals) return(0.0);
 	for (i = 0; i < inum; i++) fvals[i] = (float)vals[i];
@@ -1004,7 +1025,8 @@ double kglUniform4fv(double sh, double num, double *vals)
 ///////////////////////////////////////////////////////////////////////////////
 double kglUniform1iv(double sh, double num, double* vals)
 {
-	int i, inum; int *ivals;
+	int i, inum;
+	int* ivals;
 	inum = min((int)num,MAXUNIFVALNUM); if (inum < 0) return(0.0);
 	ivals = (int *)_alloca(inum*sizeof(ivals[0])); if (!ivals) return(0.0);
 	for(i=0;i<inum;i++) ivals[i] = (int)vals[i];
@@ -1279,6 +1301,17 @@ double mysrand(double val)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void SetEvalVars(double dxres, double dyres, double dmousx, double dmousy, double dbstatus, double dkeystatus[256])
+{
+	s_dxres = dxres;
+	s_dyres = dyres;
+	s_dmousx = dmousx;
+	s_dmousy = dmousy;
+	s_dbstatus = dbstatus;
+	memcpy(s_dkeystatus, dkeystatus, sizeof(s_dkeystatus));
+}
+
+///////////////////////////////////////////////////////////////////////////////
 EVALFUNC CompileEVALFunctionWithExt(std::string text)
 {
 	static double kglcolorbufferbit = GL_COLOR_BUFFER_BIT;
@@ -1455,12 +1488,12 @@ EVALFUNC CompileEVALFunctionWithExt(std::string text)
 		{ "NUMFRAMES", &g_DNumFrames },
 
 		// resolution and mouse position
-		{ "XRES", &g_RenderWidth },
-		{ "YRES", &g_RenderHeight },
-		{ "MOUSX", &g_MouseX },
-		{ "MOUSY", &g_MouseY },
-		{ "BSTATUS", &g_dbstatus },
-		{ "KEYSTATUS[256]", g_dkeystatus },
+		{ "XRES", &s_dxres },
+		{ "YRES", &s_dyres },
+		{ "MOUSX", &s_dmousx },
+		{ "MOUSY", &s_dmousy },
+		{ "BSTATUS", &s_dbstatus },
+		{ "KEYSTATUS[256]", &s_dkeystatus },
 
 		{ "RGB(,,)", kmyrgb },     //convert r,g,b to 24-bit col
 		{ "RGBA(,,,)", kmyrgba },     //convert r,g,b,a to 32-bit col

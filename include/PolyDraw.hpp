@@ -84,27 +84,21 @@ enum
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-struct popt_t
+struct AppOptions
 {
-	int rendcorn;
+	int renderCorner;
 	int fullscreen;
-	int clearbuffer;
+	int clearBufferEachFrame;
+	int compileOnCtrlEnter;
 	int timeout;
 	int fontheight;
 	int fontwidth;
-	int compctrlent;
 	int sepchar;
 	char fontname[256];
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-extern double g_RenderWidth;
-extern double g_RenderHeight;
-extern double g_MouseX;
-extern double g_MouseY;
-
-///////////////////////////////////////////////////////////////////////////////
-struct tsec_t
+struct TestSection
 {
 	int i0, i1; // text index range:{i0 <= i < i1} ('@' lines not included)
 	int type; // 0=host,1=vert,2=geom,3=frag
@@ -120,32 +114,32 @@ struct tsec_t
 };
 
 static const int MAX_TEXT_SECTIONS = 256;
-extern std::vector<tsec_t> g_OTSec;
-extern std::vector<tsec_t> g_TSec;
+extern std::vector<TestSection> g_OldTextSections;
+extern std::vector<TestSection> g_TextSections;
 
 ///////////////////////////////////////////////////////////////////////////////
 static const int MAX_USER_TEXURES = 256;
 extern int g_CapTextSize;
 
-struct tex_t
+struct Texture
 {
-	char nam[MAX_PATH];
-	int tar;
-	int coltype;
-	int sizx;
-	int sizy;
-	int sizz;
+	char name[MAX_PATH]; // texture file name
+	int target; // which texture unit
+	int colorType; // NOTE: also includes other flags besides color
+	int sizeX; // x-size (width)
+	int sizeY; // y-size (height)
+	int sizeZ; // z-size (depth)
 };
 
-extern tex_t g_Textures[MAX_USER_TEXURES + 1]; // +1 for font texture
+extern Texture g_Textures[MAX_USER_TEXURES + 1]; // +1 for font texture
 
 extern int g_ShaderPrograms[];
 extern int g_CurrentShader;
 
 extern GLint g_Queries[1];
 
-extern double g_dbstatus;
-extern double g_dkeystatus[256];
+//extern double g_dbstatus;
+//extern double g_dkeystatus[256];
 extern double g_DNumFrames;
 extern __int64 g_qper;
 extern __int64 g_qtim0;
@@ -169,5 +163,7 @@ double MIDIPlayNote(double chn, double frq, double vol);
 // EvalBindings.cpp
 ///////////////////////////////////////////////////////////////////////////////
 void noiseinit();
+
+void SetEvalVars(double dxres, double dyres, double dmousx, double dmousy, double dbstatus, double dkeystatus[256]);
 EVALFUNC CompileEVALFunctionWithExt(std::string text);
 

@@ -1,21 +1,21 @@
 
 #include <windows.h>
+#include <richedit.h>
 #include <process.h>
 
 #include <GL/glew.h>
 #include <GL/GL.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <memory.h>
-#include <math.h>
-#include <malloc.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <memory>
 
 #include "SciLexer.h"
 #include "Scintilla.h"
 
+#include "resource.h"
 #include "eval.hpp"
-
 #include "PolyDraw.hpp"
 
 //TODO:
@@ -40,17 +40,18 @@ static char* s_OText = nullptr;
 static char* s_TText = nullptr;
 static char* s_Line = nullptr;
 static char* s_BadLineBits = nullptr;
+static bool s_TextIsDirty = false;
 
 //tsec_t g_OTSec[MAX_TEXT_SECTIONS];
 //tsec_t g_TSec[MAX_TEXT_SECTIONS];
 //int g_OTSecN = 0;
 //int g_TSecN = 0;
-std::vector<tsec_t> g_OTSec;
-std::vector<tsec_t> g_TSec;
+std::vector<TestSection> g_OldTextSections;
+std::vector<TestSection> g_TextSections;
 
 int g_CapTextSize = 512;
 
-tex_t g_Textures[MAX_USER_TEXURES + 1] = { 0 }; // +1 for font
+Texture g_Textures[MAX_USER_TEXURES + 1] = { 0 }; // +1 for font
 
 static const int MAX_SHADERS = 256;
 static int s_Shaders[3][MAX_SHADERS];
@@ -62,15 +63,16 @@ static int s_ShaderProgramCount = 0;
 int g_ShaderPrograms[MAX_SHADER_PROGRAMS];
 int g_CurrentShader = 0;
 
-struct shadprogi_t
+struct ShaderComponents
 {
 	int vertex;
 	int geometry;
 	int fragment;
-	int ishw;
+	bool usable;
 };
 
-static shadprogi_t s_ShaderProgramsI[MAX_SHADER_PROGRAMS]; // remember linkages
+// to remember shader program linkages
+static ShaderComponents s_ShaderProgramsI[MAX_SHADER_PROGRAMS];
 
 GLint g_Queries[1];
 
@@ -81,28 +83,27 @@ static int s_oxres = 0;
 static int s_oyres = 0;
 static int s_xres;
 static int s_yres;
-static int s_ActiveApp = 1;
+static bool s_ActiveApp = true;
 static int s_ShiftKeyStatus = 0;
 static int s_ShaderStuck = 0;
 static int s_ShaderCrashed = 0;
 static double s_FOV;
 
-double g_dbstatus = 0.0;
-double g_dkeystatus[256] = { 0 };
+static double s_dbstatus = 0.0;
+static double s_dkeystatus[256] = { 0 };
+
 double g_DNumFrames = 0.0;
 __int64 g_qper;
 __int64 g_qtim0;
 
 static int s_SongTime = 0;
-//static int s_mehax = 0;
 static int s_DoRecompile = 0;
-static char s_SaveFilename[MAX_PATH] = "";
-static char* s_SaveFilenamePtr = 0;
+static std::string s_CurrentFilename;
 
-double g_RenderWidth;
-double g_RenderHeight;
-double g_MouseX;
-double g_MouseY;
+static double s_RenderWidth;
+static double s_RenderHeight;
+static double s_MouseX;
+static double s_MouseY;
 
 static HINSTANCE s_HInst;
 
@@ -112,14 +113,82 @@ static HWND s_HWndConsole = 0;
 static HWND s_HWndEditor = 0;
 
 static HFONT s_HFont = 0;
-static HMENU s_HMenu = 0;
+static HACCEL s_HAccelTable = 0;
 
-enum
+// A few basic colors
+const COLORREF g_Black = RGB(0, 0, 0);
+const COLORREF g_White = RGB(0xff, 0xff, 0xff);
+const COLORREF g_Gray = RGB(0x1e, 0x1e, 0x1e);
+const COLORREF g_LightGray = RGB(0x2a, 0x2a, 0x2a);
+const COLORREF g_Green = RGB(0, 0xff, 0);
+const COLORREF g_Red = RGB(0xff, 0, 0);
+const COLORREF g_Blue = RGB(0, 0, 0xff);
+const COLORREF g_Yellow = RGB(0xff, 0xff, 0);
+const COLORREF g_Magenta = RGB(0xff, 0, 0xff);
+const COLORREF g_Cyan = RGB(0, 0xff, 0xff);
+
+// C++ keywords
+// FIXME: we need keywords specific to GLSL and EVAL here...
+static const char g_cppKeyWords[] =
+// Standard
+"asm auto bool break case catch char class const "
+"const_cast continue default delete do double "
+"dynamic_cast else enum explicit extern false finally "
+"float for friend goto if inline int long mutable "
+"namespace new operator private protected public "
+"register reinterpret_cast register return short signed "
+"sizeof static static_cast struct switch template "
+"this throw true try typedef typeid typename "
+"union unsigned using virtual void volatile "
+"wchar_t while "
+// A few more
+"override final offsetof using "
+
+// Extended
+"__asm __asume __based __box __cdecl __declspec "
+"__delegate delegate depreciated dllexport dllimport "
+"event __event __except __fastcall __finally __forceinline "
+"__int8 __int16 __int32 __int64 __int128 __interface "
+"interface __leave naked noinline __noop noreturn "
+"nothrow novtable nullptr safecast __stdcall "
+"__try __except __finally __unaligned uuid __uuidof "
+"__virtual_inheritance";
+
+/// Scintilla Colors structure
+struct ScintillaStyleColor
 {
-	MENU_FILENEW = 0, MENU_FILEOPEN = MENU_FILENEW + 4, MENU_FILESAVE, MENU_FILESAVEAS, MENU_FILEEXIT,
-	MENU_EDITFIND, MENU_EDITFINDNEXT, MENU_EDITFINDPREV, MENU_EDITREPLACE,
-	MENU_COMPCONTENT, MENU_EVALHIGHLIGHT, MENU_RENDPLC, MENU_FULLSCREEN = MENU_RENDPLC + 4, MENU_CLEARBUFFER, MENU_FONT,
-	MENU_HELPABOUT
+	int	item;
+	COLORREF fg;
+	COLORREF bg;
+
+	ScintillaStyleColor(int item, COLORREF fg, COLORREF bg = RGB(0x1e, 0x1e, 0x1e))
+		: item(item), fg(fg), bg(bg)
+	{ }
+};
+
+// Default color scheme
+static ScintillaStyleColor g_RGBSyntaxCpp[] =
+{
+	{ SCE_C_DEFAULT, RGB(0xC8, 0xC8, 0xC8) },
+
+	{ SCE_C_COMMENT, RGB(0x60, 0x8B, 0x4E) },
+	{ SCE_C_COMMENTLINE, RGB(0x60, 0x8B, 0x4E) },
+	{ SCE_C_COMMENTDOC, RGB(0x60, 0x8B, 0x4E) },
+	{ SCE_C_COMMENTLINEDOC, RGB(0x60, 0x8B, 0x4E) },
+	{ SCE_C_COMMENTDOCKEYWORD, RGB(0x60, 0x8B, 0x4E) },
+	{ SCE_C_COMMENTDOCKEYWORDERROR, RGB(0x60, 0x8B, 0x4E) },
+
+	{ SCE_C_NUMBER, RGB(0xB5, 0xCE, 0xA8) },
+	{ SCE_C_STRING, RGB(0xD6, 0x9D, 0x85) },
+	{ SCE_C_CHARACTER, RGB(0xD6, 0x9D, 0x85) },
+	{ SCE_C_UUID, g_Cyan },
+	{ SCE_C_OPERATOR, RGB(0x9B, 0x9B, 0x9B) },
+	{ SCE_C_VERBATIM, RGB(0xB5, 0xCE, 0xA8) },
+	{ SCE_C_REGEX, RGB(0xD6, 0x9D, 0x85) },
+	{ SCE_C_PREPROCESSOR, RGB(0x9B, 0x9B, 0x9B) },
+	{ SCE_C_WORD, RGB(0x4E, 0x9C, 0xD6) },
+
+	{ -1, 0 }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,8 +196,8 @@ static char s_ExeFullPath[MAX_PATH] = "";
 static char s_ExeDirOnly[MAX_PATH] = "";
 static char s_IniFilename[MAX_PATH] = "";
 
-static popt_t s_popts;
-static popt_t s_opopts;
+static AppOptions s_AppOptions;
+static AppOptions s_OldAppOptions;
 
 ///////////////////////////////////////////////////////////////////////////////
 static HMIDIOUT s_HMidiOutPlayNote = 0;
@@ -136,29 +205,27 @@ static HMIDIOUT s_HMidiOutPlayNote = 0;
 ///////////////////////////////////////////////////////////////////////////////
 static void LoadIni()
 {
-	//char tbuf[512];
+	s_AppOptions.renderCorner = 0;
+	s_AppOptions.fullscreen = 0;
+	s_AppOptions.clearBufferEachFrame = 1;
+	s_AppOptions.timeout = 250;
+	s_AppOptions.fontheight = -13;
+	s_AppOptions.fontwidth = 0;
+	s_AppOptions.compileOnCtrlEnter = 0;
+	s_AppOptions.sepchar = '-';
+	strcpy(s_AppOptions.fontname, "Courier");
 
-	s_popts.rendcorn    =   0;
-	s_popts.fullscreen  =   0;
-    s_popts.clearbuffer =   1;
-	s_popts.timeout     = 250;
-	s_popts.fontheight  = -13;
-	s_popts.fontwidth   =   0;
-	s_popts.compctrlent =   0;
-	s_popts.sepchar     = '-';
-	strcpy(s_popts.fontname, "Courier");
+	s_AppOptions.renderCorner = min(max(GetPrivateProfileInt("POLYDRAW", "rendcorn", s_AppOptions.renderCorner, s_IniFilename), 0), 4);
+	s_AppOptions.fullscreen = min(max(GetPrivateProfileInt("POLYDRAW", "fullscreen", s_AppOptions.fullscreen, s_IniFilename), 0), 1);
+	s_AppOptions.clearBufferEachFrame = min(max(GetPrivateProfileInt("POLYDRAW", "clearbuffer", s_AppOptions.clearBufferEachFrame, s_IniFilename), 0), 1);
+	s_AppOptions.timeout = min(max(GetPrivateProfileInt("POLYDRAW", "timeout", s_AppOptions.timeout, s_IniFilename), 0), 5000);
+	s_AppOptions.fontheight = min(max((signed)GetPrivateProfileInt("POLYDRAW", "fontheight", s_AppOptions.fontheight, s_IniFilename), -1000), 1000);
+	s_AppOptions.fontwidth = min(max((signed)GetPrivateProfileInt("POLYDRAW", "fontwidth", s_AppOptions.fontwidth, s_IniFilename), -1000), 1000);
+	s_AppOptions.compileOnCtrlEnter = min(max(GetPrivateProfileInt("POLYDRAW", "compctrlent", s_AppOptions.compileOnCtrlEnter, s_IniFilename), 0), 1);
+	s_AppOptions.sepchar = min(max(GetPrivateProfileInt("POLYDRAW", "sepchar", s_AppOptions.sepchar, s_IniFilename), 0), 255);
+	GetPrivateProfileString("POLYDRAW", "fontname", s_AppOptions.fontname, s_AppOptions.fontname, sizeof(s_AppOptions.fontname), s_IniFilename);
 
-	s_popts.rendcorn    = min(max(        GetPrivateProfileInt("POLYDRAW","rendcorn"   ,s_popts.rendcorn   ,s_IniFilename),    0),   4);
-	s_popts.fullscreen  = min(max(        GetPrivateProfileInt("POLYDRAW","fullscreen" ,s_popts.fullscreen ,s_IniFilename),    0),   1);
-	s_popts.clearbuffer = min(max(        GetPrivateProfileInt("POLYDRAW","clearbuffer",s_popts.clearbuffer,s_IniFilename),    0),   1);
-	s_popts.timeout     = min(max(        GetPrivateProfileInt("POLYDRAW","timeout"    ,s_popts.timeout    ,s_IniFilename),    0),5000);
-	s_popts.fontheight  = min(max((signed)GetPrivateProfileInt("POLYDRAW","fontheight" ,s_popts.fontheight ,s_IniFilename),-1000),1000);
-	s_popts.fontwidth   = min(max((signed)GetPrivateProfileInt("POLYDRAW","fontwidth"  ,s_popts.fontwidth  ,s_IniFilename),-1000),1000);
-	s_popts.compctrlent = min(max(        GetPrivateProfileInt("POLYDRAW","compctrlent",s_popts.compctrlent,s_IniFilename),    0),   1);
-	s_popts.sepchar     = min(max(        GetPrivateProfileInt("POLYDRAW","sepchar"    ,s_popts.sepchar    ,s_IniFilename),    0), 255);
-	GetPrivateProfileString("POLYDRAW", "fontname", s_popts.fontname, s_popts.fontname, sizeof(s_popts.fontname), s_IniFilename);
-
-	memcpy(&s_opopts, &s_popts, sizeof(s_opopts));
+	memcpy(&s_OldAppOptions, &s_AppOptions, sizeof(s_OldAppOptions));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,18 +233,57 @@ static void SaveIni()
 {
 	char tbuf[512];
 
-	if (!memcmp(&s_opopts, &s_popts, sizeof(s_opopts)))
+	if (!memcmp(&s_OldAppOptions, &s_AppOptions, sizeof(s_OldAppOptions)))
 		return;
 
-	sprintf(tbuf,"%d",s_popts.rendcorn   ); WritePrivateProfileString("POLYDRAW","rendcorn"   ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.fullscreen ); WritePrivateProfileString("POLYDRAW","fullscreen" ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.clearbuffer); WritePrivateProfileString("POLYDRAW","clearbuffer",tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.timeout    ); WritePrivateProfileString("POLYDRAW","timeout"    ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.fontheight ); WritePrivateProfileString("POLYDRAW","fontheight" ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.fontwidth  ); WritePrivateProfileString("POLYDRAW","fontwidth"  ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.compctrlent); WritePrivateProfileString("POLYDRAW","compctrlent",tbuf,s_IniFilename);
-	sprintf(tbuf,"%d",s_popts.sepchar    ); WritePrivateProfileString("POLYDRAW","sepchar"    ,tbuf,s_IniFilename);
-	sprintf(tbuf,"%s",s_popts.fontname   ); WritePrivateProfileString("POLYDRAW","fontname"   ,tbuf,s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.renderCorner); WritePrivateProfileString("POLYDRAW", "rendcorn", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.fullscreen); WritePrivateProfileString("POLYDRAW", "fullscreen", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.clearBufferEachFrame); WritePrivateProfileString("POLYDRAW", "clearbuffer", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.timeout); WritePrivateProfileString("POLYDRAW", "timeout", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.fontheight); WritePrivateProfileString("POLYDRAW", "fontheight", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.fontwidth); WritePrivateProfileString("POLYDRAW", "fontwidth", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.compileOnCtrlEnter); WritePrivateProfileString("POLYDRAW", "compctrlent", tbuf, s_IniFilename);
+	sprintf(tbuf, "%d", s_AppOptions.sepchar); WritePrivateProfileString("POLYDRAW", "sepchar", tbuf, s_IniFilename);
+	sprintf(tbuf, "%s", s_AppOptions.fontname); WritePrivateProfileString("POLYDRAW", "fontname", tbuf, s_IniFilename);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+LRESULT SendEditor(UINT msg, WPARAM wParam = 0, LPARAM lParam = 0)
+{
+	return ::SendMessage(s_HWndEditor, msg, wParam, lParam);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void SetAStyle(HWND hWnd, int style, COLORREF fore, COLORREF back = g_Gray, int size = -1, const char* face = nullptr)
+{
+	SendMessage(hWnd, SCI_STYLESETFORE, style, fore);
+	SendMessage(hWnd, SCI_STYLESETBACK, style, back);
+
+	if (size >= 1)
+		SendMessage(hWnd, SCI_STYLESETSIZE, style, size);
+
+	if (face)
+		SendMessage(hWnd, SCI_STYLESETFONT, style, (LPARAM)face);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void EnableAMenuItem(int id, bool enable)
+{
+	if (enable)
+		::EnableMenuItem(::GetMenu(s_HWndMain), id, MF_ENABLED | MF_BYCOMMAND);
+	else
+		::EnableMenuItem(::GetMenu(s_HWndMain), id, MF_DISABLED | MF_GRAYED | MF_BYCOMMAND);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void CheckMenus()
+{
+	EnableAMenuItem(IDM_FILE_SAVE, s_TextIsDirty);
+	EnableAMenuItem(IDM_EDIT_UNDO, SendEditor(EM_CANUNDO) != 0 ? true : false);
+	EnableAMenuItem(IDM_EDIT_REDO, SendEditor(SCI_CANREDO) != 0 ? true : false);
+	EnableAMenuItem(IDM_EDIT_PASTE, SendEditor(EM_CANPASTE) != 0 ? true : false);
+
+	EnableAMenuItem(IDM_EDIT_REPLACE, false); // FIXME: temp
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -376,7 +482,7 @@ static unsigned int __stdcall watchthread(void*)
 		WaitForSingleObject(ghevent[0], INFINITE);
 
 		// if script takes too long, temporarily apply self-modifying code to force it to finish much faster
-		if (WaitForSingleObject(ghevent[1], s_popts.timeout) == WAIT_TIMEOUT)
+		if (WaitForSingleObject(ghevent[1], s_AppOptions.timeout) == WAIT_TIMEOUT)
 		{
 			showtimeout = 1;
 			kasm87jumpback(s_EvalFunc, 0);
@@ -386,26 +492,6 @@ static unsigned int __stdcall watchthread(void*)
 
 		SetEvent(ghevent[2]);
 	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-static short* menustart(short* sptr)
-{
-	*sptr++ = 0;
-	*sptr++ = 0;
-	return sptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-static short* menuadd(short* sptr, char* st, int flags, int id)
-{
-	*sptr++ = flags; //MENUITEMTEMPLATE
-
-	if (!(flags & MF_POPUP))
-		*sptr++ = id;
-
-	sptr += MultiByteToWideChar(CP_ACP, 0, st, -1, (LPWSTR)sptr, strlen(st) + 1);
-	return sptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -629,7 +715,7 @@ double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 
 	glPushAttrib(GL_ENABLE_BIT | GL_MODELVIEW);
 	glGetDoublev(GL_CURRENT_COLOR, ocol);
-	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, g_RenderWidth, g_RenderHeight, 0, -1, 1);
+	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, s_RenderWidth, s_RenderHeight, 0, -1, 1);
 	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
 	glDisable(GL_DEPTH_TEST);
@@ -724,7 +810,7 @@ double __cdecl setshader_int(int sh0, int sh1, int sh2)
 	{
 		if (s_ShaderProgramsI[i].vertex == sh0 && s_ShaderProgramsI[i].geometry == sh1 && s_ShaderProgramsI[i].fragment == sh2)
 		{
-			if (!s_ShaderProgramsI[i].ishw)
+			if (!s_ShaderProgramsI[i].usable)
 			{
 				g_CurrentShader = 0;
 				return -1.0;
@@ -752,7 +838,7 @@ double __cdecl setshader_int(int sh0, int sh1, int sh2)
 	s_ShaderProgramsI[s_ShaderProgramCount].vertex = sh0;
 	s_ShaderProgramsI[s_ShaderProgramCount].geometry = sh1;
 	s_ShaderProgramsI[s_ShaderProgramCount].fragment = sh2;
-	s_ShaderProgramsI[s_ShaderProgramCount].ishw = 1;
+	s_ShaderProgramsI[s_ShaderProgramCount].usable = true;
 
 	g_ShaderPrograms[s_ShaderProgramCount] = glCreateProgram();
 	glAttachShader(g_ShaderPrograms[s_ShaderProgramCount], s_Shaders[0][sh0]);
@@ -771,9 +857,9 @@ double __cdecl setshader_int(int sh0, int sh1, int sh2)
 		//glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS,&n); //1024
 		i = s_geo2blocki[sh1];
 
-		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_INPUT_TYPE_EXT, g_TSec[i].geo_in);
-		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_OUTPUT_TYPE_EXT, g_TSec[i].geo_out);
-		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_VERTICES_OUT_EXT, g_TSec[i].geo_nverts);
+		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_INPUT_TYPE_EXT, g_TextSections[i].geo_in);
+		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_OUTPUT_TYPE_EXT, g_TextSections[i].geo_out);
+		glProgramParameteri(g_ShaderPrograms[s_ShaderProgramCount], GL_GEOMETRY_VERTICES_OUT_EXT, g_TextSections[i].geo_nverts);
 	}
 
 	glLinkProgram(g_ShaderPrograms[s_ShaderProgramCount]);
@@ -787,12 +873,12 @@ double __cdecl setshader_int(int sh0, int sh1, int sh2)
 	if (!i || j) // the string of evil..
 	{
 		if (!i)
-			kputs(tbuf,1);
+			kputs(tbuf, 1);
 
 		if (j)
 			kputs("Shader won't run in HW! Execution denied. :/", 1);
 
-		s_ShaderProgramsI[s_ShaderProgramCount].ishw = 0;
+		s_ShaderProgramsI[s_ShaderProgramCount].usable = false;
 		s_ShaderProgramCount++;
 
 		return -1.0;
@@ -843,10 +929,10 @@ double MIDIPlayNote(double chn, double frq, double vol)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Parse script for '@' lines, generating list of sections
-static std::vector<tsec_t> Text2Sections(char* text)
+static std::vector<TestSection> Text2Sections(char* text)
 {
-	std::vector<tsec_t> sections;
-	tsec_t sec;
+	std::vector<TestSection> sections;
+	TestSection sec;
 
 	int i, j, i0, ntyp, n, slast[4], scnt[4], olin, line;
 	char* cptr;
@@ -907,103 +993,100 @@ static std::vector<tsec_t> Text2Sections(char* text)
 		if (text[i] != '@' || (i > 0 && (text[i - 1] != '\r' && text[i - 1] != '\n')))
 			continue;
 
-		//if (text[i] == '@' && (i == 0 || (text[i - 1] == '\r' || text[i - 1] == '\n'))) // start of new section
-		//{
-			// now save previous section in sections collection
-			{
-				sec.i0 = i0;
-				sec.i1 = i;
-				sec.type = ntyp;
-				sec.count = scnt[ntyp];
-				sec.lineOffset = olin;
-				sec.nextType = -1;
-				sections.push_back(sec);
-			}
+		// now save previous section in sections collection
+		{
+			sec.i0 = i0;
+			sec.i1 = i;
+			sec.type = ntyp;
+			sec.count = scnt[ntyp];
+			sec.lineOffset = olin;
+			sec.nextType = -1;
+			sections.push_back(sec);
+		}
 
-			if (slast[ntyp] >= 0)
-				sections[slast[ntyp]].nextType = n;
+		if (slast[ntyp] >= 0)
+			sections[slast[ntyp]].nextType = n;
 
-			slast[ntyp] = n;
-			scnt[ntyp]++;
+		slast[ntyp] = n;
+		scnt[ntyp]++;
 
+		i++;
+
+		if (text[i] == 'h') ntyp = 0;
+		else if (text[i] == 'v') ntyp = 1; // vertex shader
+		else if (text[i] == 'g') ntyp = 2; // geometry shader
+		else if (text[i] == 'f') ntyp = 3; // fragment shader
+		else i--; // reuse ntyp
+
+		i++;
+
+		if (ntyp == 2 && text[i] == ',') // read options for geometry shader if needed
+		{
 			i++;
 
-			if (text[i] == 'h') ntyp = 0;
-			else if (text[i] == 'v') ntyp = 1; // vertex shader
-			else if (text[i] == 'g') ntyp = 2; // geometry shader
-			else if (text[i] == 'f') ntyp = 3; // fragment shader
-			else i--; // reuse ntyp
+			// default values
+			sec.geo_in = GL_TRIANGLES;
+			sec.geo_out = GL_TRIANGLE_STRIP;
+			sec.geo_nverts = 8; // NOTE: default is 0 in specification
 
-			i++;
+			if ((strlen(&text[i]) >= 9) && (!_memicmp(&text[i], "GL_POINTS", 9))) { i += 9; sec.geo_in = GL_POINTS; }
+			if ((strlen(&text[i]) >= 8) && (!_memicmp(&text[i], "GL_LINES", 8))) { i += 8; sec.geo_in = GL_LINES; }
+			if ((strlen(&text[i]) >= 18) && (!_memicmp(&text[i], "GL_LINES_ADJACENCY", 18))) { i += 22; sec.geo_in = GL_LINES_ADJACENCY_EXT; }
+			if ((strlen(&text[i]) >= 22) && (!_memicmp(&text[i], "GL_LINES_ADJACENCY_EXT", 22))) { i += 22; sec.geo_in = GL_LINES_ADJACENCY_EXT; }
+			if ((strlen(&text[i]) >= 12) && (!_memicmp(&text[i], "GL_TRIANGLES", 12))) { i += 12; sec.geo_in = GL_TRIANGLES; }
+			if ((strlen(&text[i]) >= 22) && (!_memicmp(&text[i], "GL_TRIANGLES_ADJACENCY", 22))) { i += 26; sec.geo_in = GL_TRIANGLES_ADJACENCY_EXT; }
+			if ((strlen(&text[i]) >= 26) && (!_memicmp(&text[i], "GL_TRIANGLES_ADJACENCY_EXT", 26))) { i += 26; sec.geo_in = GL_TRIANGLES_ADJACENCY_EXT; }
 
-			if (ntyp == 2 && text[i] == ',') // read options for geometry shader if needed
+			if (text[i] == ',')
 			{
 				i++;
-
-				// default values
-				sec.geo_in = GL_TRIANGLES;
-				sec.geo_out = GL_TRIANGLE_STRIP;
-				sec.geo_nverts = 8; // NOTE: default is 0 in specification
-
-				if ((strlen(&text[i]) >= 9) && (!_memicmp(&text[i], "GL_POINTS", 9))) { i += 9; sec.geo_in = GL_POINTS; }
-				if ((strlen(&text[i]) >= 8) && (!_memicmp(&text[i], "GL_LINES", 8))) { i += 8; sec.geo_in = GL_LINES; }
-				if ((strlen(&text[i]) >= 18) && (!_memicmp(&text[i], "GL_LINES_ADJACENCY", 18))) { i += 22; sec.geo_in = GL_LINES_ADJACENCY_EXT; }
-				if ((strlen(&text[i]) >= 22) && (!_memicmp(&text[i], "GL_LINES_ADJACENCY_EXT", 22))) { i += 22; sec.geo_in = GL_LINES_ADJACENCY_EXT; }
-				if ((strlen(&text[i]) >= 12) && (!_memicmp(&text[i], "GL_TRIANGLES", 12))) { i += 12; sec.geo_in = GL_TRIANGLES; }
-				if ((strlen(&text[i]) >= 22) && (!_memicmp(&text[i], "GL_TRIANGLES_ADJACENCY", 22))) { i += 26; sec.geo_in = GL_TRIANGLES_ADJACENCY_EXT; }
-				if ((strlen(&text[i]) >= 26) && (!_memicmp(&text[i], "GL_TRIANGLES_ADJACENCY_EXT", 26))) { i += 26; sec.geo_in = GL_TRIANGLES_ADJACENCY_EXT; }
-
+				if ((strlen(&text[i]) >= 9) && (!_memicmp(&text[i], "GL_POINTS", 9))) { i += 9; sec.geo_out = GL_POINTS; }
+				if ((strlen(&text[i]) >= 13) && (!_memicmp(&text[i], "GL_LINE_STRIP", 13))) { i += 13; sec.geo_out = GL_LINE_STRIP; }
+				if ((strlen(&text[i]) >= 17) && (!_memicmp(&text[i], "GL_TRIANGLE_STRIP", 17))) { i += 17; sec.geo_out = GL_TRIANGLE_STRIP; }
 				if (text[i] == ',')
 				{
 					i++;
-					if ((strlen(&text[i]) >= 9) && (!_memicmp(&text[i], "GL_POINTS", 9))) { i += 9; sec.geo_out = GL_POINTS; }
-					if ((strlen(&text[i]) >= 13) && (!_memicmp(&text[i], "GL_LINE_STRIP", 13))) { i += 13; sec.geo_out = GL_LINE_STRIP; }
-					if ((strlen(&text[i]) >= 17) && (!_memicmp(&text[i], "GL_TRIANGLE_STRIP", 17))) { i += 17; sec.geo_out = GL_TRIANGLE_STRIP; }
-					if (text[i] == ',')
-					{
-						i++;
-						sec.geo_nverts = strtol(&text[i], &cptr, 0); // ~1..1024
-						i = cptr - &text[0];
-					}
+					sec.geo_nverts = strtol(&text[i], &cptr, 0); // ~1..1024
+					i = cptr - &text[0];
 				}
 			}
+		}
 
-			if (text[i] == ':' && n < (MAX_TEXT_SECTIONS - 1))
+		if (text[i] == ':' && n < (MAX_TEXT_SECTIONS - 1))
+		{
+			j = 0;
+
+			for (i++; text[i] && text[i] != '\r' && text[i] != '\n'; i++)
 			{
-				j = 0;
+				if (text[i] == '/' && text[i + 1] == '/')
+					break;
 
-				for (i++; text[i] && text[i] != '\r' && text[i] != '\n'; i++)
+				if (j < (sizeof(sec.name) - 1))
 				{
-					if (text[i] == '/' && text[i + 1] == '/')
-						break;
-
-					if (j < (sizeof(sec.name) - 1))
-					{
-						sec.name[j] = text[i];
-						j++;
-					}
+					sec.name[j] = text[i];
+					j++;
 				}
-
-				while (j > 0 && sec.name[j - 1] == ' ')
-					j--;
-
-				sec.name[j] = '\0';
 			}
-			else
-				sec.name[0] = '\0';
 
-			while (text[i] && text[i] != '\n')
-				i++;
+			while (j > 0 && sec.name[j - 1] == ' ')
+				j--;
 
-			line++;
-			olin = line;
-			i0 = i + 1;
+			sec.name[j] = '\0';
+		}
+		else
+			sec.name[0] = '\0';
 
-			++n;
+		while (text[i] && text[i] != '\n')
+			i++;
 
-			if (n >= MAX_TEXT_SECTIONS)
-				return sections;
-		//}
+		line++;
+		olin = line;
+		i0 = i + 1;
+
+		++n;
+
+		if (n >= MAX_TEXT_SECTIONS)
+			return sections;
 	}
 
 	//ltsec[n].i0 = i0;
@@ -1027,7 +1110,6 @@ static std::vector<tsec_t> Text2Sections(char* text)
 	if (slast[ntyp] >= 0)
 		sections[slast[ntyp]].nextType = n;
 
-	//n++;
 	return sections;
 }
 
@@ -1123,31 +1205,31 @@ static void SetShaders(HWND h, HWND hWndEdit)
 		s_DoRecompile &= ~2;
 		NeedRecompile = true;
 	}
-	else if (s_popts.compctrlent)
+	else if (s_AppOptions.compileOnCtrlEnter)
 		NeedRecompile = false;
 	else
 	{
 		NeedRecompile = false;
 
-		for (tseci = 0; tseci < g_TSec.size(); tseci++)
+		for (tseci = 0; tseci < g_TextSections.size(); tseci++)
 		{
 			//Compare block
-			if (!g_TSec[tseci].type)
+			if (!g_TextSections[tseci].type)
 				continue;
 
-			if (tseci >= g_OTSec.size() || g_TSec[tseci].type != g_OTSec[tseci].type)
+			if (tseci >= g_OldTextSections.size() || g_TextSections[tseci].type != g_OldTextSections[tseci].type)
 			{
 				NeedRecompile = true;
 				break;
 			}
 
-			if ((g_TSec[tseci].i1 - g_TSec[tseci].i0) != (g_OTSec[tseci].i1 - g_OTSec[tseci].i0))
+			if ((g_TextSections[tseci].i1 - g_TextSections[tseci].i0) != (g_OldTextSections[tseci].i1 - g_OldTextSections[tseci].i0))
 			{
 				NeedRecompile = true;
 				break;
 			}
 
-			if (memcmp(&s_Text[g_TSec[tseci].i0], &s_OText[g_OTSec[tseci].i0], g_TSec[tseci].i1 - g_TSec[tseci].i0) != 0)
+			if (memcmp(&s_Text[g_TextSections[tseci].i0], &s_OText[g_OldTextSections[tseci].i0], g_TextSections[tseci].i1 - g_TextSections[tseci].i0) != 0)
 			{
 				NeedRecompile = true;
 				break;
@@ -1169,9 +1251,9 @@ static void SetShaders(HWND h, HWND hWndEdit)
 	for(; s_ShaderProgramCount > 0; s_ShaderProgramCount--)
 		glDeleteProgram(g_ShaderPrograms[s_ShaderProgramCount - 1]);
 
-	for (tseci = 0; tseci < g_TSec.size(); tseci++)
+	for (tseci = 0; tseci < g_TextSections.size(); tseci++)
 	{
-		if (g_TSec[tseci].type == 0)
+		if (g_TextSections[tseci].type == 0)
 			continue;
 
 		//Compare block
@@ -1180,25 +1262,25 @@ static void SetShaders(HWND h, HWND hWndEdit)
 		//else if (memcmp(&text[tsec[tseci].i0],&otext[otsec[tseci].i0],tsec[tseci].i1-tsec[tseci].i0)) needrecompile = 1;
 		//else needrecompile = 0;
 
-		j = g_TSec[tseci].type - 1;
+		j = g_TextSections[tseci].type - 1;
 
-		if (s_Text[g_TSec[tseci].i0] == '!' && s_Text[g_TSec[tseci].i0+1] == '!') // ARB ASM section
+		if (s_Text[g_TextSections[tseci].i0] == '!' && s_Text[g_TextSections[tseci].i0+1] == '!') // ARB ASM section
 		{
 			glUseProgram(0);
 
 			glGetError(); //flush errors (could be from script)
 
-			if (g_TSec[tseci].name[0])
-				sprintf(tbuf, "Compile %s_asm %s", shadnam[j], g_TSec[tseci].name);
+			if (g_TextSections[tseci].name[0])
+				sprintf(tbuf, "Compile %s_asm %s", shadnam[j], g_TextSections[tseci].name);
 			else
-				sprintf(tbuf, "Compile %s_asm#%d", shadnam[j], g_TSec[tseci].count);
+				sprintf(tbuf, "Compile %s_asm#%d", shadnam[j], g_TextSections[tseci].count);
 
-			if (g_TSec[tseci].type&1)
+			if (g_TextSections[tseci].type&1)
 				kputs(tbuf, 1);
 
-			if (g_TSec[tseci].type == 1)
+			if (g_TextSections[tseci].type == 1)
 				i = GL_VERTEX_PROGRAM_ARB;
-			else if (g_TSec[tseci].type == 3)
+			else if (g_TextSections[tseci].type == 3)
 				i = GL_FRAGMENT_PROGRAM_ARB;
 			else
 				i = 0;
@@ -1215,7 +1297,7 @@ static void SetShaders(HWND h, HWND hWndEdit)
 				else
 					s_Shaders[2][s_ShaderCount[2]] = j;
 
-				glProgramStringARB(i, GL_PROGRAM_FORMAT_ASCII_ARB, g_TSec[tseci].i1 - g_TSec[tseci].i0, &s_Text[g_TSec[tseci].i0]);
+				glProgramStringARB(i, GL_PROGRAM_FORMAT_ASCII_ARB, g_TextSections[tseci].i1 - g_TextSections[tseci].i0, &s_Text[g_TextSections[tseci].i0]);
 
 				if (glGetError() != GL_NO_ERROR)
 				{
@@ -1235,7 +1317,7 @@ static void SetShaders(HWND h, HWND hWndEdit)
 							continue;
 
 						if ((unsigned)k < (unsigned)s_TextSize)
-							s_BadLineBits[(g_TSec[tseci].lineOffset + k) >> 3] |= (1 << ((g_TSec[tseci].lineOffset + k) & 7));
+							s_BadLineBits[(g_TextSections[tseci].lineOffset + k) >> 3] |= (1 << ((g_TextSections[tseci].lineOffset + k) & 7));
 					}
 
 					return;
@@ -1250,23 +1332,23 @@ static void SetShaders(HWND h, HWND hWndEdit)
 		{
 			//usearbasm = 0;
 
-			if (g_TSec[tseci].name[0])
-				sprintf(tbuf, "Compile %s %s", shadnam[j], g_TSec[tseci].name);
+			if (g_TextSections[tseci].name[0])
+				sprintf(tbuf, "Compile %s %s", shadnam[j], g_TextSections[tseci].name);
 			else
-				sprintf(tbuf, "Compile %s#%d", shadnam[j], g_TSec[tseci].count);
+				sprintf(tbuf, "Compile %s#%d", shadnam[j], g_TextSections[tseci].count);
 
 			kputs(tbuf, 1);
 
 			if (j == 1)
-				s_geo2blocki[g_TSec[tseci].count] = tseci; //map shader to block for geometry (to access geo_in, geo_out, geo_nverts)
+				s_geo2blocki[g_TextSections[tseci].count] = tseci; //map shader to block for geometry (to access geo_in, geo_out, geo_nverts)
 
 			i = glCreateShader(shadconst[j]);
 			s_Shaders[j][s_ShaderCount[j]] = i;
-			cptr = &s_Text[g_TSec[tseci].i0];
-			ch = s_Text[g_TSec[tseci].i1];
-			s_Text[g_TSec[tseci].i1] = 0;
+			cptr = &s_Text[g_TextSections[tseci].i0];
+			ch = s_Text[g_TextSections[tseci].i1];
+			s_Text[g_TextSections[tseci].i1] = 0;
 			glShaderSource(i, 1, (const GLchar**)&cptr, 0);
-			s_Text[g_TSec[tseci].i1] = ch;
+			s_Text[g_TextSections[tseci].i1] = ch;
 
 			glCompileShader(i);
 			glGetShaderiv(i, GL_COMPILE_STATUS, &compiled);
@@ -1275,12 +1357,12 @@ static void SetShaders(HWND h, HWND hWndEdit)
 			{
 				glGetInfoLogARB(i, sizeof(tbuf), 0, tbuf);
 				kputs(tbuf, 1);
-				glsl_geterrorlines(tbuf, g_TSec[tseci].lineOffset);
+				glsl_geterrorlines(tbuf, g_TextSections[tseci].lineOffset);
 				return;
 			}
 		}
 
-		s_ShaderCount[g_TSec[tseci].type-1]++;
+		s_ShaderCount[g_TextSections[tseci].type-1]++;
 	}
 
 	g_CurrentShader = 0;
@@ -1323,27 +1405,27 @@ static void Render(HWND hWnd, HWND hWndEdit)
 	char ch;
 
 	// Find host block (use only last one if multiple found)
-	while (g_TSec[tseci].type != 0)
+	while (g_TextSections[tseci].type != 0)
 	{
-		if (tseci >= g_TSec.size())
+		if (tseci >= g_TextSections.size())
 			return;
 
 		++tseci;
 	}
 
-	while (g_TSec[tseci].nextType >= 0)
-		tseci = g_TSec[tseci].nextType;
+	while (g_TextSections[tseci].nextType >= 0)
+		tseci = g_TextSections[tseci].nextType;
 
-	if (tseci >= g_OTSec.size() || g_OTSec[tseci].type || g_OTSec[tseci].nextType >= 0)
+	if (tseci >= g_OldTextSections.size() || g_OldTextSections[tseci].type || g_OldTextSections[tseci].nextType >= 0)
 		NeedRecompile = true;
-	else if (g_TSec[tseci].i1 - g_TSec[tseci].i0 != g_OTSec[tseci].i1 - g_OTSec[tseci].i0)
+	else if (g_TextSections[tseci].i1 - g_TextSections[tseci].i0 != g_OldTextSections[tseci].i1 - g_OldTextSections[tseci].i0)
 		NeedRecompile = true;
-	else if (memcmp(&s_Text[g_TSec[tseci].i0], &s_OText[g_OTSec[tseci].i0], g_TSec[tseci].i1 - g_TSec[tseci].i0))
+	else if (memcmp(&s_Text[g_TextSections[tseci].i0], &s_OText[g_OldTextSections[tseci].i0], g_TextSections[tseci].i1 - g_TextSections[tseci].i0))
 		NeedRecompile = true;
 	else
 		NeedRecompile = false;
 
-	if (s_popts.compctrlent)
+	if (s_AppOptions.compileOnCtrlEnter)
 		NeedRecompile = false;
 
 	if (s_DoRecompile & 1)
@@ -1369,10 +1451,10 @@ static void Render(HWND hWnd, HWND hWndEdit)
 		if (s_EvalFunc)
 			kasm87free(s_EvalFunc);
 
-		ch = s_Text[g_TSec[tseci].i1];
-		s_Text[g_TSec[tseci].i1] = 0;
-		s_EvalFunc = (double(__cdecl*)())CompileEVALFunctionWithExt(&s_Text[g_TSec[tseci].i0]);
-		s_Text[g_TSec[tseci].i1] = ch;
+		ch = s_Text[g_TextSections[tseci].i1];
+		s_Text[g_TextSections[tseci].i1] = 0;
+		s_EvalFunc = (double(__cdecl*)())CompileEVALFunctionWithExt(&s_Text[g_TextSections[tseci].i0]);
+		s_Text[g_TextSections[tseci].i1] = ch;
 		gevalfuncleng = kasm87leng;
 
 		//NOTE: use tsec[tseci].linofs as offset when adding support for line of error
@@ -1388,15 +1470,15 @@ static void Render(HWND hWnd, HWND hWndEdit)
 		}
 	}
 
-	// opdate mouse position
+	// update mouse position
 	{
 		POINT p0, p1;
 		p0.x = p0.y = 0;
 		p1.x = p1.y = 0;
 		ClientToScreen(s_HWndRender, &p0);
 		GetCursorPos(&p1);
-		g_MouseX = double(p1.x - p0.x);
-		g_MouseY = double(p1.y - p0.y);
+		s_MouseX = double(p1.x - p0.x);
+		s_MouseY = double(p1.y - p0.y);
 	}
 
 	if (s_EvalFunc != nullptr && !s_ShaderStuck && !s_ShaderCrashed)
@@ -1416,6 +1498,7 @@ static void Render(HWND hWnd, HWND hWndEdit)
 			gthand = (HANDLE)_beginthreadex(0, 4096, watchthread, (void*)0, 0, &win98requiresme);
 		}
 
+		SetEvalVars(s_RenderWidth, s_RenderHeight, s_MouseX, s_MouseY, s_dbstatus, s_dkeystatus);
 		SetEvent(ghevent[0]);
 		SafeEvalFunc();
 		SetEvent(ghevent[1]);
@@ -1446,7 +1529,7 @@ static void Render(HWND hWnd, HWND hWndEdit)
 				scrolly = SendMessage(hWndEdit, EM_GETFIRSTVISIBLELINE, 0, 0);
 				SendMessage(hWndEdit, EM_GETSEL, (unsigned)&setsel0, (unsigned)&setsel1);
 
-				sprintf(buf, "%s \\\\.\\pipe\\txtbuf /scrolly=%d /setsel0=%d /setsel1=%d /savfil=%s", s_ExeFullPath, scrolly, setsel0, setsel1, s_SaveFilename);
+				sprintf(buf, "%s \\\\.\\pipe\\txtbuf /scrolly=%d /setsel0=%d /setsel1=%d /savfil=%s", s_ExeFullPath, scrolly, setsel0, setsel1, s_CurrentFilename.c_str());
 				CreateProcess(0, buf, 0, 0, 1, CREATE_NEW_CONSOLE, 0, 0, &si, &pi);
 
 				if (ConnectNamedPipe(hpipe, 0))
@@ -1490,9 +1573,11 @@ static void Render(HWND hWnd, HWND hWndEdit)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-extern void SaveFileDialog(HWND);
-static int passasksave()
+extern void SaveFileDialog();
+static void SaveFile(const std::string& filename);
+static int SaveIfUnsure()
 {
+	/*
 	if (!SendMessage(s_HWndEditor, EM_GETMODIFY, 0, 0))
 		return 1;
 
@@ -1504,13 +1589,40 @@ static int passasksave()
 	}
 
 	return 0;
+	*/
+
+	if (!s_TextIsDirty)
+		return IDYES;
+
+	if (s_CurrentFilename[0] == '\0') // not saved yet
+	{
+		auto choice = MessageBox(s_HWndMain, "Save changes (new file)?", s_ProgramName, MB_YESNOCANCEL);
+
+		if (choice == IDYES)
+			SaveFileDialog();
+
+		return choice;
+	}
+
+	// otherwise it already has a filename
+	std::string msg;
+	msg += "Save changes to \"";
+	msg += s_CurrentFilename;
+	msg += "\"?";
+
+	auto choice = MessageBox(s_HWndMain, msg.c_str(), s_ProgramName, MB_YESNOCANCEL);
+
+	if (choice == IDYES)
+		SaveFile(s_CurrentFilename);
+
+	return choice;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 static void NewFile(int mode)
 {
-	if (!passasksave())
-		return;
+	//if (!SaveIfUnsure())
+	//	return;
 
 	if (mode == 0)
 	{
@@ -1616,31 +1728,27 @@ static void NewFile(int mode)
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	SetFOV(90.0, g_RenderWidth, g_RenderHeight);
+	SetFOV(90.0, s_RenderWidth, s_RenderHeight);
 
 	g_CapTextSize = 512;
 	s_DoRecompile = 3;
-	s_SaveFilename[0] = 0;
-	s_SaveFilenamePtr = 0;
+	s_CurrentFilename = "";
 
-	//SendMessage(s_HWndEditor, EM_SETMODIFY, 0, 0);
 	SendMessage(s_HWndEditor, SCI_EMPTYUNDOBUFFER, 0, 0);
+	s_TextIsDirty = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void LoadFile(char* filename, HWND hWndEdit)
+static void LoadFile(const std::string& filename)
 {
 	int i, j, k, ind[4], leng, fileformat;
 	char* buf = 0;
 
-	if (!passasksave())
-		return;
-
-	auto fp = fopen(filename, "rb");
+	auto fp = fopen(filename.c_str(), "rb");
 
 	if (fp)
 	{
-		if (!_memicmp(filename, "\\\\.\\pipe\\", 9)) //load from pipe instead of file
+		if (!_memicmp(filename.c_str(), "\\\\.\\pipe\\", 9)) //load from pipe instead of file
 		{
 			leng = 0; i = 0; // For pipes, file size is not known in advance
 
@@ -1657,14 +1765,15 @@ static void LoadFile(char* filename, HWND hWndEdit)
 				if (i < j)
 				{
 					s_Text[leng] = 13;
-					s_Text[leng+1] = 10;
+					s_Text[leng + 1] = 10;
 					leng += 2;
 				}
 
 				if (i)
 					continue;
 
-				s_Text[leng] = k; leng++;
+				s_Text[leng] = k;
+				leng++;
 			}
 
 			s_Text[leng] = 0;
@@ -1674,7 +1783,7 @@ static void LoadFile(char* filename, HWND hWndEdit)
 		{
 			char buf5[5];
 
-			strcpy(s_SaveFilename, filename); s_SaveFilenamePtr = 0;
+			s_CurrentFilename = filename;
 
 			// Autodetect file format... (0:65536 byte file with tons of 0's, 1:4 null-terminated strings)
 			fseek(fp, 0, SEEK_END);
@@ -1690,7 +1799,7 @@ static void LoadFile(char* filename, HWND hWndEdit)
 					break;
 			}
 
-			if ((leng == 65536) && (i < 0))
+			if (leng == 65536 && i < 0)
 				fileformat = 0; // Tigrou's original file format
 			else if (i < sizeof(buf5)-1)
 				fileformat = 1; // any ASCII 0's is binary
@@ -1743,44 +1852,14 @@ static void LoadFile(char* filename, HWND hWndEdit)
 
 		fclose(fp);
 
-		// Convert tabs to 3 spaces in-place
-		/*
-		j = 0;
-
-		for (i = 0; text[i]; i++)
-		{
-			if (text[i] == '\t')
-				j += 2;
-		}
-
-		j += i;
-
-		if (j >= (textsiz - 1))
-		{
-			kputs("file too long", 1);
-			MessageBeep(16); //evil
-			return;
-		}
-
-		text[j] = 0;
-
-		for(i--; i >= 0; i--)
-		{
-			if (text[i] == '\t')
-			{
-				j -= 3;
-				text[j+2] = ' ';
-				text[j+1] = ' ';
-				text[j] = ' ';
-				continue;
-			}
-
-			j--;
-			text[j] = text[i];
-		}
-		*/
-
-		SetWindowText(hWndEdit, s_Text);
+		SendEditor(SCI_CANCEL);
+		SendEditor(SCI_SETUNDOCOLLECTION, 0);
+		SetWindowText(s_HWndEditor, s_Text);
+		SendEditor(SCI_SETUNDOCOLLECTION, 1);
+		::SetFocus(s_HWndEditor);
+		SendEditor(EM_EMPTYUNDOBUFFER);
+		SendEditor(SCI_SETSAVEPOINT);
+		SendEditor(SCI_GOTOPOS, 0);
 	}
 
 	//otext[0] = text[0]^1; otext[1] = 0; //force recompile and reset time
@@ -1790,7 +1869,7 @@ static void LoadFile(char* filename, HWND hWndEdit)
 	//qglBindTex(0.0);
 	//ksetfov(90.0);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	SetFOV(90.0, g_RenderWidth, g_RenderHeight);
+	SetFOV(90.0, s_RenderWidth, s_RenderHeight);
 
 	g_CapTextSize = 512;
 	s_DoRecompile = 3;
@@ -1803,71 +1882,68 @@ static void LoadFile(char* filename, HWND hWndEdit)
 
 	{
 		char tbuf[512];
-		sprintf(tbuf,"\nLoaded '%s'",filename);
+		sprintf(tbuf,"Loaded '%s'", filename.c_str());
 		kputs(tbuf, 1);
 	}
-
-	SendMessage(hWndEdit, EM_SETMODIFY, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void LoadFileDialog(HWND lwnd)
+static void LoadFileDialog()
 {
 	OPENFILENAME ofn;
 	char szFileName[MAX_PATH] = "";
 
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = lwnd;
+	ofn.hwndOwner = s_HWndMain;
 	ofn.lpstrFilter = "Polydraw Shader Script (*.pss;*.bin)\0*.pss;*.bin\0All Files (*.*)\0*.*\0";
 	ofn.lpstrFile = szFileName;
 	ofn.nMaxFile = MAX_PATH;
-	ofn.Flags = OFN_EXPLORER|OFN_FILEMUSTEXIST|OFN_HIDEREADONLY;
+	ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 	ofn.lpstrDefExt = "pss";
 
 	if (GetOpenFileName(&ofn))
-		LoadFile(ofn.lpstrFile,s_HWndEditor);
+		LoadFile(ofn.lpstrFile);
 
 	s_ShiftKeyStatus = 0;
-	memset(g_dkeystatus,0,sizeof(g_dkeystatus));
+	memset(s_dkeystatus,0,sizeof(s_dkeystatus));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void SaveFile(char* filename)
+static void SaveFile(const std::string& filename)
 {
-	FILE* fp = fopen(filename, "wb");
+	auto fp = fopen(filename.c_str(), "wb");
 
 	if (fp)
 	{
-		strcpy(s_SaveFilename, filename);
-		s_SaveFilenamePtr = 0;
+		s_CurrentFilename = filename;
 
 		fwrite(s_Text, 1, strlen(s_Text), fp);
 		fclose(fp);
+		SendEditor(SCI_SETSAVEPOINT);
+
 		MessageBeep(48);
-		SendMessage(s_HWndEditor, EM_SETMODIFY, 0, 0);
 	}
 
 	{
 		char tbuf[512];
-		sprintf(tbuf,"\nSaved '%s'",filename);
-		kputs(tbuf,1);
+		sprintf(tbuf, "Saved '%s'", filename.c_str());
+		kputs(tbuf, 1);
 	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void SaveFileDialog(HWND lwnd)
+static void SaveFileDialog()
 {
+	char filename[MAX_PATH] = "";
+	strcpy(filename, s_CurrentFilename.c_str());
+
 	OPENFILENAME ofn;
-	char filnam[MAX_PATH] = "";
-
-	strcpy(filnam, s_SaveFilename);
-
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = lwnd;
+	ofn.hwndOwner = s_HWndMain;
 	ofn.lpstrFilter = "PolyDraw Shader Script (*.pss)\0*.pss\0All Files (*.*)\0*.*\0";
-	ofn.lpstrFile = filnam;
+	ofn.lpstrFile = filename;
 	ofn.nMaxFile = MAX_PATH;
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
 	ofn.lpstrDefExt = "pss";
@@ -1876,59 +1952,60 @@ static void SaveFileDialog(HWND lwnd)
 		SaveFile(ofn.lpstrFile);
 
 	s_ShiftKeyStatus = 0;
-	memset(g_dkeystatus, 0, sizeof(g_dkeystatus));
+	memset(s_dkeystatus, 0, sizeof(s_dkeystatus));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 static void ResetWindows(int cmdshow);
 
-static void updateshifts(LPARAM lParam, int mode)
+static void UpdateShifts(LPARAM lParam, int mode)
 {
 	if (!mode)
 	{
-		switch (lParam&0x17f0000)
+		switch (lParam & 0x17f0000)
 		{
-		case 0x02a0000: s_ShiftKeyStatus &= ~(3<<16); break; //0x2a
-		case 0x0360000: s_ShiftKeyStatus &= ~(3<<16); break; //0x36
-		case 0x01d0000: s_ShiftKeyStatus &= ~(1<<18); break; //0x1d
-		case 0x11d0000: s_ShiftKeyStatus &= ~(1<<19); break; //0x9d
-		case 0x0380000: s_ShiftKeyStatus &= ~(1<<20); break; //0x38
-		case 0x1380000: s_ShiftKeyStatus &= ~(1<<21); break; //0xb8
+		case 0x02a0000: s_ShiftKeyStatus &= ~(3<<16); break; // 0x2a
+		case 0x0360000: s_ShiftKeyStatus &= ~(3<<16); break; // 0x36
+		case 0x01d0000: s_ShiftKeyStatus &= ~(1<<18); break; // 0x1d
+		case 0x11d0000: s_ShiftKeyStatus &= ~(1<<19); break; // 0x9d
+		case 0x0380000: s_ShiftKeyStatus &= ~(1<<20); break; // 0x38
+		case 0x1380000: s_ShiftKeyStatus &= ~(1<<21); break; // 0xb8
 		}
 	}
 	else
 	{
-		switch (lParam&0x17f0000)
+		switch (lParam & 0x17f0000)
 		{
-		case 0x02a0000: s_ShiftKeyStatus |= (1<<16); break; //0x2a
-		case 0x0360000: s_ShiftKeyStatus |= (1<<17); break; //0x36
-		case 0x01d0000: s_ShiftKeyStatus |= (1<<18); break; //0x1d
-		case 0x11d0000: s_ShiftKeyStatus |= (1<<19); break; //0x9d
-		case 0x0380000: s_ShiftKeyStatus |= (1<<20); break; //0x38
-		case 0x1380000: s_ShiftKeyStatus |= (1<<21); break; //0xb8
+		case 0x02a0000: s_ShiftKeyStatus |= (1<<16); break; // 0x2a
+		case 0x0360000: s_ShiftKeyStatus |= (1<<17); break; // 0x36
+		case 0x01d0000: s_ShiftKeyStatus |= (1<<18); break; // 0x1d
+		case 0x11d0000: s_ShiftKeyStatus |= (1<<19); break; // 0x9d
+		case 0x0380000: s_ShiftKeyStatus |= (1<<20); break; // 0x38
+		case 0x1380000: s_ShiftKeyStatus |= (1<<21); break; // 0xb8
 		}
 	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void helpabout()
+static void HelpAbout()
 {
 	char tbuf[1024];
-	sprintf(tbuf,"PolyDraw, an Opengl scripting tool. Compiled: %s\r\n"
-					 "\r\n"
-					 "Get latest version here:\r\n"
-					 "   http://advsys.net/ken/download.htm#polydraw\r\n"
-					 "\r\n"
-					 "Authors:\r\n"
-					 "\r\n"
-					 "   Ken Silverman (http://advsys.net/ken):\r\n"
-					 "      EVAL compiler, GUI cleanup, fixes, enhancements\r\n"
-					 "\r\n"
-					 "   Tigrou (tigrou.ind@gmail.com):\r\n"
-					 "      Original author & concept. His version here:\r\n"
-					 "         http://pouet.net/prod.php?which=54245\r\n"
-					 "         ftp://ftp.untergrund.net/users/ind/polydraw.zip\r\n"
-					 ,__DATE__);
+	sprintf(tbuf,
+		"PolyDraw, an Opengl scripting tool. Compiled: %s\r\n"
+		"\r\n"
+		"Get latest version here:\r\n"
+		"   http://advsys.net/ken/download.htm#polydraw\r\n"
+		"\r\n"
+		"Authors:\r\n"
+		"\r\n"
+		"   Ken Silverman (http://advsys.net/ken):\r\n"
+		"      EVAL compiler, GUI cleanup, fixes, enhancements\r\n"
+		"\r\n"
+		"   Tigrou (tigrou.ind@gmail.com):\r\n"
+		"      Original author & concept. His version here:\r\n"
+		"         http://pouet.net/prod.php?which=54245\r\n"
+		"         ftp://ftp.untergrund.net/users/ind/polydraw.zip\r\n"
+		,__DATE__ );
 	MessageBox(s_HWndMain, tbuf, s_ProgramName, MB_OK);
 }
 
@@ -1940,7 +2017,7 @@ static void helpabout()
 // NOTE: 3 hacks must be placed outside this block:
 // 1. IsDialogMessage() near PeekMessage/GetMessage.
 // 2. if (msg == uFindReplaceMsg) ... in WndProc of edit control.
-// 3. Remember to add |ES_NOHIDESEL to 4th parm of edit control's CreateWindow().
+// 3. Remember to add |ES_NOHIDESEL to 4th param of edit control's CreateWindow().
 ///////////////////////////////////////////////////////////////////////////////
 static HWND s_HWndFind = 0;
 static unsigned int s_FindMsg = 0;
@@ -2100,6 +2177,7 @@ static int findreplace_process(LPFINDREPLACE lpfr)
 ///////////////////////////////////////////////////////////////////////////////
 static void findreplace(int isreplace)
 {
+	/*
 	if (s_FindMsg == 0) // register message on first call
 	{
 		s_FindMsg = RegisterWindowMessage(FINDMSGSTRING);
@@ -2118,6 +2196,7 @@ static void findreplace(int isreplace)
 		s_FindReplaceInfo.lpfnHook = 0;
 		s_FindReplaceInfo.lpTemplateName = 0;
 	}
+	*/
 
 	//|FR_DOWN     |FR_NOUPDOWN   |FR_HIDEUPDOWN
 	//|FR_WHOLEWORD|FR_NOWHOLEWORD|FR_HIDEWHOLEWORD
@@ -2161,95 +2240,6 @@ static void findnext(int isnext)
 	findreplace_process(&s_FindReplaceInfo);
 }
 
-/// Scintilla Colors structure
-struct ScintillaStyleColor
-{
-	int	item;
-	COLORREF fg;
-	COLORREF bg;
-
-	ScintillaStyleColor(int item, COLORREF fg, COLORREF bg = RGB(0x1e, 0x1e, 0x1e))
-		: item(item), fg(fg), bg(bg)
-	{ }
-};
-
-// A few basic colors
-const COLORREF g_Black = RGB(0, 0, 0);
-const COLORREF g_White = RGB(0xff, 0xff, 0xff);
-const COLORREF g_Gray = RGB(0x1e, 0x1e, 0x1e);
-const COLORREF g_LightGray = RGB(0x2a, 0x2a, 0x2a);
-const COLORREF g_Green = RGB(0, 0xff, 0);
-const COLORREF g_Red = RGB(0xff, 0, 0);
-const COLORREF g_Blue = RGB(0, 0, 0xff);
-const COLORREF g_Yellow = RGB(0xff, 0xff, 0);
-const COLORREF g_Magenta = RGB(0xff, 0, 0xff);
-const COLORREF g_Cyan = RGB(0, 0xff, 0xff);
-
-// C++ keywords
-// FIXME: we need keywords specific to GLSL and EVAL here...
-static const char g_cppKeyWords[] =
-// Standard
-"asm auto bool break case catch char class const "
-"const_cast continue default delete do double "
-"dynamic_cast else enum explicit extern false finally "
-"float for friend goto if inline int long mutable "
-"namespace new operator private protected public "
-"register reinterpret_cast register return short signed "
-"sizeof static static_cast struct switch template "
-"this throw true try typedef typeid typename "
-"union unsigned using virtual void volatile "
-"wchar_t while "
-// a few more
-"override final offsetof using "
-
-// Extended
-"__asm __asume __based __box __cdecl __declspec "
-"__delegate delegate depreciated dllexport dllimport "
-"event __event __except __fastcall __finally __forceinline "
-"__int8 __int16 __int32 __int64 __int128 __interface "
-"interface __leave naked noinline __noop noreturn "
-"nothrow novtable nullptr safecast __stdcall "
-"__try __except __finally __unaligned uuid __uuidof "
-"__virtual_inheritance";
-
-/// Default color scheme
-static ScintillaStyleColor g_RGBSyntaxCpp[] =
-{
-	{ SCE_C_DEFAULT, RGB(0xC8, 0xC8, 0xC8) },
-
-	{ SCE_C_COMMENT, RGB(0x60, 0x8B, 0x4E) },
-	{ SCE_C_COMMENTLINE, RGB(0x60, 0x8B, 0x4E) },
-	{ SCE_C_COMMENTDOC, RGB(0x60, 0x8B, 0x4E) },
-	{ SCE_C_COMMENTLINEDOC, RGB(0x60, 0x8B, 0x4E) },
-	{ SCE_C_COMMENTDOCKEYWORD, RGB(0x60, 0x8B, 0x4E) },
-	{ SCE_C_COMMENTDOCKEYWORDERROR, RGB(0x60, 0x8B, 0x4E) },
-
-	{ SCE_C_NUMBER, RGB(0xB5, 0xCE, 0xA8) },
-	{ SCE_C_STRING, RGB(0xD6, 0x9D, 0x85) },
-	{ SCE_C_CHARACTER, RGB(0xD6, 0x9D, 0x85) },
-	{ SCE_C_UUID, g_Cyan },
-	{ SCE_C_OPERATOR, RGB(0x9B, 0x9B, 0x9B) },
-	{ SCE_C_VERBATIM, RGB(0xB5, 0xCE, 0xA8) },
-	{ SCE_C_REGEX, RGB(0xD6, 0x9D, 0x85) },
-	{ SCE_C_PREPROCESSOR, RGB(0x9B, 0x9B, 0x9B) },
-	{ SCE_C_WORD, RGB(0x4E, 0x9C, 0xD6) },
-
-	{ -1, 0 }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-void SetAStyle(HWND hWnd, int style, COLORREF fore, COLORREF back = g_Gray, int size = -1, const char* face = nullptr)
-{
-	SendMessage(hWnd, SCI_STYLESETFORE, style, fore);
-	SendMessage(hWnd, SCI_STYLESETBACK, style, back);
-
-	if (size >= 1)
-		SendMessage(hWnd, SCI_STYLESETSIZE, style, size);
-
-	if (face)
-		SendMessage(hWnd, SCI_STYLESETFONT, style, (LPARAM)face);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 static void ResetWindows(int cmdshow)
 {
@@ -2258,7 +2248,7 @@ static void ResetWindows(int cmdshow)
 	//RECT r;
 	int i, guiflags, x0[3], y0[3], x1[3], y1[3];
 
-	i = ((labs(s_popts.fontheight) * 20) >> 4);
+	i = ((labs(s_AppOptions.fontheight) * 20) >> 4);
 
 	if (!s_HWndMain)
 	{
@@ -2278,56 +2268,56 @@ static void ResetWindows(int cmdshow)
 	guiflags = WS_VISIBLE | WS_CHILD | WS_VSCROLL; //|WS_HSCROLL|WS_CAPTION|WS_SIZEBOX|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_SYSMENU;
 	guiflags |= ES_MULTILINE | ES_WANTRETURN | ES_AUTOHSCROLL | ES_AUTOVSCROLL;
 
-	if (!s_popts.fullscreen)
+	if (!s_AppOptions.fullscreen)
 	{
-		g_RenderWidth = double((s_xres >> 1) & ~3);
-		g_RenderHeight = double((int)(g_RenderWidth * 3) >> 2);
-		x1[0] = (int)g_RenderWidth;
-		y1[0] = (int)g_RenderHeight;
-		x1[1] = (int)g_RenderWidth;
-		y1[1] = s_yres - (int)g_RenderHeight;
-		x1[2] = s_xres - (int)g_RenderWidth;
+		s_RenderWidth = double((s_xres >> 1) & ~3);
+		s_RenderHeight = double((int)(s_RenderWidth * 3) >> 2);
+		x1[0] = (int)s_RenderWidth;
+		y1[0] = (int)s_RenderHeight;
+		x1[1] = (int)s_RenderWidth;
+		y1[1] = s_yres - (int)s_RenderHeight;
+		x1[2] = s_xres - (int)s_RenderWidth;
 		y1[2] = s_yres;
 
-		if (!(s_popts.rendcorn & 1))
+		if (!(s_AppOptions.renderCorner & 1))
 		{
 			x0[0] = 0;
 			x0[1] = 0;
-			x0[2] = (int)g_RenderWidth;
+			x0[2] = (int)s_RenderWidth;
 		}
 		else
 		{
-			x0[0] = s_xres - (int)g_RenderWidth;
-			x0[1] = s_xres - (int)g_RenderWidth;
+			x0[0] = s_xres - (int)s_RenderWidth;
+			x0[1] = s_xres - (int)s_RenderWidth;
 			x0[2] = 0;
 		}
 
-		if (!(s_popts.rendcorn & 2))
+		if (!(s_AppOptions.renderCorner & 2))
 		{
 			y0[0] = 0;
-			y0[1] = (int)g_RenderHeight;
+			y0[1] = (int)s_RenderHeight;
 			y0[2] = 0;
 		}
 		else
 		{
-			y0[0] = s_yres - (int)g_RenderHeight;
+			y0[0] = s_yres - (int)s_RenderHeight;
 			y0[1] = 0;
 			y0[2] = 0;
 		}
 	}
 	else
 	{
-		g_RenderWidth = (double)s_xres;
-		g_RenderHeight = (double)s_yres;
+		s_RenderWidth = (double)s_xres;
+		s_RenderHeight = (double)s_yres;
 		x0[0] = 0;
 		y0[0] = 0;
-		x1[0] = (int)g_RenderWidth;
-		y1[0] = (int)g_RenderHeight;
+		x1[0] = (int)s_RenderWidth;
+		y1[0] = (int)s_RenderHeight;
 		x0[1] = 0;
-		y0[1] = (int)g_RenderHeight;
+		y0[1] = (int)s_RenderHeight;
 		x1[1] = 0;
 		y1[1] = 0;
-		x0[2] = (int)g_RenderWidth;
+		x0[2] = (int)s_RenderWidth;
 		y0[2] = 0;
 		x1[2] = 0;
 		y1[2] = 0;
@@ -2394,10 +2384,83 @@ static void ResetWindows(int cmdshow)
 		SendMessage(s_HWndEditor, SCI_STYLESETBACK, STYLE_LINENUMBER, g_LightGray);
 	}
 
-	if (ooglxres != g_RenderWidth || ooglyres != g_RenderHeight)
+	if (ooglxres != s_RenderWidth || ooglyres != s_RenderHeight)
 	{
 		//dorecompile = 1;
 		//QueryPerformanceCounter((LARGE_INTEGER *)&qtim0); dnumframes = 0.0; //WinXP/balls.pss needs this!
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+static void ProcessCommand(int id)
+{
+	switch (id)
+	{
+	case IDM_FILE_NEW_BLANK:
+		if (SaveIfUnsure() != IDCANCEL)
+			NewFile(0);
+
+		break;
+
+	case IDM_FILE_OPEN:
+		if (SaveIfUnsure() != IDCANCEL)
+			LoadFileDialog();
+
+		break;
+
+	case IDM_FILE_SAVE: SaveFile(s_CurrentFilename); break;
+	case IDM_FILE_SAVEAS: SaveFileDialog(); break;
+		break;
+	case IDM_FILE_EXIT:
+		if (SaveIfUnsure() != IDCANCEL)
+			::PostQuitMessage(0);
+
+		break;
+
+	case IDM_EDIT_UNDO: SendEditor(WM_UNDO); break;
+	case IDM_EDIT_REDO: SendEditor(SCI_REDO); break;
+	case IDM_EDIT_CUT: SendEditor(WM_CUT); break;
+	case IDM_EDIT_COPY: SendEditor(WM_COPY); break;
+	case IDM_EDIT_PASTE: SendEditor(WM_PASTE); break;
+	case IDM_EDIT_DELETE: SendEditor(WM_CLEAR); break;
+	case IDM_EDIT_SELECTALL: SendEditor(SCI_SELECTALL); break;
+
+	case IDM_EDIT_FIND:
+		s_HWndFind = FindText(&s_FindReplaceInfo);
+		break;
+
+	case IDM_EDIT_FIND_NEXT:
+		break;
+
+	case IDM_EDIT_FIND_PREVIOUS:
+		break;
+
+	case IDM_EDIT_REPLACE:
+		s_HWndFind = ReplaceText(&s_FindReplaceInfo);
+		break;
+
+	case IDM_OPTIONS_FULLSCREEN:
+		s_AppOptions.fullscreen = !s_AppOptions.fullscreen;
+		::CheckMenuItem(::GetMenu(s_HWndMain), IDM_OPTIONS_FULLSCREEN, (s_AppOptions.fullscreen ? MF_CHECKED : MF_UNCHECKED));
+		ResetWindows(SW_NORMAL);
+		break;
+
+	case IDM_HELP_ABOUT:
+		HelpAbout();
+		break;
+
+	default: break;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void Notify(const SCNotification& notif)
+{
+	switch (notif.nmhdr.code)
+	{
+	case SCN_SAVEPOINTREACHED: s_TextIsDirty = false; CheckMenus(); break;
+	case SCN_SAVEPOINTLEFT: s_TextIsDirty = true; CheckMenus(); break;
+	default: break;
 	}
 }
 
@@ -2407,105 +2470,102 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	POINT p0, p1;
 	int i;
 
-	// FIXME: very hacky, needs work
+	// check for messages from find/replace dialog
 	if (msg == s_FindMsg)
 	{
 		LPFINDREPLACE lpfr = (LPFINDREPLACE)lParam;
 
 		if (lpfr->Flags & FR_DIALOGTERM) // dialog closed
-		{
 			s_HWndFind = nullptr;
-		}
 		else if (lpfr->Flags & FR_FINDNEXT)
 		{
 			if (lpfr->Flags & FR_DOWN) // searching down
-			{
-				findnext(1);
-			}
+				ProcessCommand(IDM_EDIT_FIND_NEXT);
 			else // searching up
-			{
-				findnext(0);
-			}
+				ProcessCommand(IDM_EDIT_FIND_PREVIOUS);
 		}
 
-		return DefWindowProc(hWnd, msg, wParam, lParam);
+		return 0;
 	}
 
 	switch (msg)
 	{
 	case WM_DESTROY:
-		PostQuitMessage(0);
+		::PostQuitMessage(0);
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (fmod(g_dbstatus, 2.0) < 1)
-			g_dbstatus += 1;
+		if (fmod(s_dbstatus, 2.0) < 1)
+			s_dbstatus += 1;
 
 		p0.x = p0.y = 0;
 		ClientToScreen(s_HWndRender, &p0);
 		GetCursorPos(&p1);
 
-		if (((unsigned)(p1.x - p0.x) < (unsigned)g_RenderWidth) && ((unsigned)(p1.y - p0.y) < (unsigned)g_RenderHeight))
+		if (((unsigned)(p1.x - p0.x) < (unsigned)s_RenderWidth) && ((unsigned)(p1.y - p0.y) < (unsigned)s_RenderHeight))
 			SetFocus(s_HWndMain);
 
 		break;
 
-	case WM_LBUTTONUP:   if (fmod(g_dbstatus, 2.0) >= 1) g_dbstatus -= 1; break;
-	case WM_RBUTTONDOWN: if (fmod(g_dbstatus, 4.0) <  2) g_dbstatus += 2; break;
-	case WM_RBUTTONUP:   if (fmod(g_dbstatus, 4.0) >= 2) g_dbstatus -= 2; break;
-	case WM_MBUTTONDOWN: if (fmod(g_dbstatus, 8.0) <  4) g_dbstatus += 4; break;
-	case WM_MBUTTONUP:   if (fmod(g_dbstatus, 8.0) >= 4) g_dbstatus -= 4; break;
+	case WM_LBUTTONUP:   if (fmod(s_dbstatus, 2.0) >= 1) s_dbstatus -= 1; break;
+	case WM_RBUTTONDOWN: if (fmod(s_dbstatus, 4.0) <  2) s_dbstatus += 2; break;
+	case WM_RBUTTONUP:   if (fmod(s_dbstatus, 4.0) >= 2) s_dbstatus -= 2; break;
+	case WM_MBUTTONDOWN: if (fmod(s_dbstatus, 8.0) <  4) s_dbstatus += 4; break;
+	case WM_MBUTTONUP:   if (fmod(s_dbstatus, 8.0) >= 4) s_dbstatus -= 4; break;
 
 	case WM_KEYUP:
-		updateshifts(lParam, 0);
+		UpdateShifts(lParam, 0);
 		i = ((lParam >> 16) & 127) + ((lParam >> 17) & 128);
 
-		if (g_dkeystatus[i] != 0.0)
-			g_dkeystatus[i] = 0.0;
+		if (s_dkeystatus[i] != 0.0)
+			s_dkeystatus[i] = 0.0;
 
 		break;
 
 	case WM_KEYDOWN:
-		updateshifts(lParam, 1);
+		UpdateShifts(lParam, 1);
 		i = ((lParam >> 16) & 127) + ((lParam >> 17) & 128);
 		//if (i == 1 && s_mehax) PostQuitMessage(0);
-		if (g_dkeystatus[i] == 0.0) g_dkeystatus[i] = 1.0;
-		if ((wParam & 255) == VK_F1) { helpabout(); return(0); }
-		if ((wParam & 255) == VK_F3) { findnext((s_ShiftKeyStatus & 0x30000) == 0); return(0); }
+		if (s_dkeystatus[i] == 0.0) s_dkeystatus[i] = 1.0;
+		//if ((wParam & 255) == VK_F1) { helpabout(); return(0); }
+		//if ((wParam & 255) == VK_F3) { findnext((s_ShiftKeyStatus & 0x30000) == 0); return(0); }
 		break;
 
-	case WM_SYSCHAR:
-		if ((wParam&255) == VK_RETURN)
+	//case WM_CHAR:
+		//if ((wParam & 255) == 10) { s_DoRecompile = 3; return 0; } // Ctrl+Enter
+		//if ((wParam & 255) == 0x0c) { LoadFileDialog(s_HWndMain); return 0; } // Ctrl+L
+		//if ((wParam & 255) == 0x13) { if (s_SaveFilename[0]) SaveFile(s_SaveFilename); else SaveFileDialog(s_HWndMain); return 0; } // Ctrl+S
+		//if ((wParam & 255) == 0x06) { findreplace(0); s_ShiftKeyStatus = 0; return 0; } // Ctrl+F
+		//if ((wParam & 255) == 0x12) { findreplace(1); s_ShiftKeyStatus = 0; return 0; } // Ctrl+R
+	//	return 0;
+
+	case WM_SIZE:
+		if (hWnd != s_HWndMain)
+			return 0;
+
+		if (wParam == SIZE_MAXHIDE || wParam == SIZE_MINIMIZED)
 		{
-			s_popts.fullscreen = !s_popts.fullscreen;
-			CheckMenuItem(s_HMenu, MENU_FULLSCREEN, s_popts.fullscreen*MF_CHECKED);
-			ResetWindows(SW_NORMAL);
+			s_ActiveApp = false;
 			return 0;
 		}
 
-		break;
-
-	case WM_CHAR:
-		if ((wParam & 255) == 10) { s_DoRecompile = 3; return 0; } // Ctrl+Enter
-		if ((wParam & 255) == 0x0c) { LoadFileDialog(s_HWndMain); return 0; } // Ctrl+L
-		if ((wParam & 255) == 0x13) { if (s_SaveFilename[0]) SaveFile(s_SaveFilename); else SaveFileDialog(s_HWndMain); return 0; } // Ctrl+S
-		if ((wParam & 255) == 0x06) { findreplace(0); s_ShiftKeyStatus = 0; return 0; } // Ctrl+F
-		if ((wParam & 255) == 0x12) { findreplace(1); s_ShiftKeyStatus = 0; return 0; } // Ctrl+R
-		break;
-
-	case WM_SIZE:
-		if (hWnd != s_HWndMain) break;
-		if ((wParam == SIZE_MAXHIDE) || (wParam == SIZE_MINIMIZED)) { s_ActiveApp = 0; break; }
-		s_ActiveApp = 1;
+		s_ActiveApp = true;
 		s_xres = LOWORD(lParam);
 		s_yres = HIWORD(lParam);
-		if ((s_oxres != s_xres) || (s_oyres != s_yres)) { s_oxres = s_xres; s_oyres = s_yres; ResetWindows(SW_NORMAL); }
-		break;
+
+		if (s_oxres != s_xres || s_oyres != s_yres)
+		{
+			s_oxres = s_xres;
+			s_oyres = s_yres;
+			ResetWindows(SW_NORMAL);
+		}
+
+		return 0;
 
 	case WM_ACTIVATEAPP:
-		s_ActiveApp = (BOOL)wParam;
+		s_ActiveApp = ((BOOL)wParam ? true : false);
 		s_ShiftKeyStatus = 0;
-		break;
+		return 0;
 
 #if 0
 	case WM_CTLCOLOREDIT:
@@ -2519,12 +2579,19 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 #endif
 
 	case WM_CLOSE:
-		if (!passasksave())
-			return 0;
+		if (SaveIfUnsure() != IDCANCEL)
+		{
+			::DestroyWindow(s_HWndEditor);
+			::PostQuitMessage(0);
+		}
 
-		break;
+		return 0;
 
 	case WM_COMMAND:
+		ProcessCommand(LOWORD(wParam));
+		CheckMenus();
+
+		/*
 		switch (LOWORD(wParam)) // process menu
 		{
 		case MENU_FILENEW+0: case MENU_FILENEW+1: case MENU_FILENEW+2: case MENU_FILENEW+3:
@@ -2534,7 +2601,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		case MENU_FILESAVE:    if (s_SaveFilename[0]) { SaveFile(s_SaveFilename); break; } //no break intentional
 		case MENU_FILESAVEAS:  SaveFileDialog(hWnd); break;
 		case MENU_FILEEXIT:    if (passasksave()) { PostQuitMessage(0); } break;
-		case MENU_EDITFIND:    /*findreplace(s_HWndEditor, 0);*/ findreplace(0); break;
+		case MENU_EDITFIND:    //findreplace(s_HWndEditor, 0); findreplace(0); break;
 		case MENU_EDITFINDNEXT: findnext(1); break;
 		case MENU_EDITFINDPREV: findnext(0); break;
 		case MENU_EDITREPLACE: findreplace(1); break;
@@ -2649,8 +2716,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			default:
 				break;
 		}
+		*/
 
-		break;
+		return 0;
+
+	case WM_NOTIFY:
+		Notify(*((SCNotification*)lParam));
+		return 0;
 
 	default:
 		break;
@@ -2746,49 +2818,30 @@ static HACCEL RegisterResources(HINSTANCE hInstance)
 {
 	s_HInst = hInstance;
 
-	const char resourceName[] = "PolyDrawApp";
+	const char* resourceName = "PolyDrawApp";
 	HACCEL hAccTable = LoadAccelerators(hInstance, resourceName);
 
 	// register our main window class
-	{
-		WNDCLASS wndClass;
-		wndClass.style = CS_OWNDC; //CS_HREDRAW | CS_VREDRAW;
-		wndClass.lpfnWndProc = WndProc;
-		wndClass.cbClsExtra = 0;
-		wndClass.cbWndExtra = 0;
-		wndClass.hInstance = s_HInst;
-		wndClass.hIcon = LoadIcon(0, IDI_APPLICATION);
-		wndClass.hCursor = LoadCursor(0, IDC_ARROW);
-		wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wndClass.lpszMenuName = resourceName;
-		wndClass.lpszClassName = s_AppClassName;
+	WNDCLASS wndClass;
+	wndClass.style = CS_OWNDC; //CS_HREDRAW | CS_VREDRAW;
+	wndClass.lpfnWndProc = WndProc;
+	wndClass.cbClsExtra = 0;
+	wndClass.cbWndExtra = 0;
+	wndClass.hInstance = s_HInst;
+	wndClass.hIcon = 0, //LoadIcon(0, IDI_APPLICATION);
+	wndClass.hCursor = LoadCursor(0, IDC_ARROW);
+	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+	wndClass.lpszMenuName = resourceName;
+	wndClass.lpszClassName = s_AppClassName;
 
-		if (!::RegisterClass(&wndClass))
-			::exit(FALSE);
-	}
+	if (!::RegisterClass(&wndClass))
+		::exit(FALSE);
 
 	// register find/replace message
-	{
-		s_FindMsg = RegisterWindowMessage(FINDMSGSTRING);
+	s_FindMsg = RegisterWindowMessage(FINDMSGSTRING);
 
-		if (!s_FindMsg)
-			::exit(FALSE);
-
-		s_FindText[0] = 0;
-		s_ReplaceText[0] = 0;
-
-		s_FindReplaceInfo.lStructSize = sizeof(s_FindReplaceInfo);
-		s_FindReplaceInfo.hwndOwner = s_HWndMain;
-		s_FindReplaceInfo.hInstance = s_HInst;
-		s_FindReplaceInfo.Flags = FR_DOWN;
-		s_FindReplaceInfo.lpstrFindWhat = s_FindText;
-		s_FindReplaceInfo.lpstrReplaceWith = s_ReplaceText;
-		s_FindReplaceInfo.wFindWhatLen = sizeof(s_FindText);
-		s_FindReplaceInfo.wReplaceWithLen = sizeof(s_ReplaceText);
-		s_FindReplaceInfo.lCustData = 0;
-		s_FindReplaceInfo.lpfnHook = 0;
-		s_FindReplaceInfo.lpTemplateName = 0;
-	}
+	if (!s_FindMsg)
+		::exit(FALSE);
 
 	return hAccTable;
 }
@@ -2796,22 +2849,21 @@ static HACCEL RegisterResources(HINSTANCE hInstance)
 ///////////////////////////////////////////////////////////////////////////////
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+	// load dll first and foremost
 	if (LoadLibrary("SciLexer.dll") == nullptr)
 	{
 		MessageBox(s_HWndMain, "Loading Scintilla DLL failed.  Make sure SciLexer.dll is available.", s_ProgramName, MB_OK);
 		return 1;
 	}
 
-	__int64 q = 0I64, qlast = 0I64;
+	__int64 q = 0I64;
+	__int64 qlast = 0I64;
 	int qnum = 0;
-	int i, j, k, z, argc, argfilindex = -1; //, setsel0 = -1, setsel1 = -1, scrolly = -1;
-	char buf[1024];
+	int argc, argfilindex = -1; //, setsel0 = -1, setsel1 = -1, scrolly = -1;
 	char* argv[MAX_PATH >> 1];
-	//char* savfilnam = 0;
 
-	//osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	//GetVersionEx(&osvi);
-
+	// FIXME: lets not use windows functions for settings
+	// to make the eventual goal of cross-platform-ness easier
 	{
 		RECT rw;
 		SystemParametersInfo(SPI_GETWORKAREA, 0, &rw, 0);
@@ -2820,6 +2872,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		nCmdShow = SW_MAXIMIZE;
 
 		GetModuleFileName(0, s_ExeFullPath, sizeof(s_ExeFullPath));
+		int i, j;
 
 		for (i = 0, j = -1; s_ExeFullPath[i]; i++)
 		{
@@ -2837,7 +2890,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	argc = cmdline2arg(lpCmdLine, argv);
 
-	for (i = argc - 1; i > 0; i--)
+	for (int i = (argc - 1); i > 0; i--)
 	{
 		if (argv[i][0] != '/' && argv[i][0] != '-')
 		{
@@ -2873,10 +2926,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		if (argv[i][1] >= '0' && argv[i][1] <= '9')
 		{
-			k = 0;
-			z = 0;
+			int k = 0;
+			int z = 0;
 
-			for (j = 1; ; j++)
+			for (int j = 1; ; j++)
 			{
 				if (argv[i][j] >= '0' && argv[i][j] <= '9')
 				{
@@ -2903,7 +2956,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 	}
 
-	//if (osvi.dwPlatformId < 2) textsiz = 32768;/*<NT*/ else textsiz = 65536;
 	s_TextSize = 65536;
 	s_Text = (char*)malloc(s_TextSize); if (!s_Text) { MessageBox(s_HWndMain,"malloc failed",s_ProgramName,MB_OK); return 1; }
 	s_OText = (char*)malloc(s_TextSize); if (!s_OText) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
@@ -2912,60 +2964,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	s_BadLineBits = (char*)malloc((s_TextSize + 7) >> 3); if (!s_BadLineBits) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
 	memset(s_BadLineBits, 0, (s_TextSize + 7) >> 3);
 
+
 	auto hAccTable = RegisterResources(hInstance);
 
 	ResetWindows(nCmdShow);
 
-	s_HFont = CreateFont(s_popts.fontheight, s_popts.fontwidth, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, s_popts.fontname);
+	// set font
+	s_HFont = CreateFont(s_AppOptions.fontheight, s_AppOptions.fontwidth, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, s_AppOptions.fontname);
 	SendMessage(s_HWndConsole, WM_SETFONT, (WPARAM)s_HFont, 0);
 	//SendMessage(s_HWndEditor, WM_SETFONT, (WPARAM)s_HFont, 0); // FIXME: use message for Scintilla editor
 
-	//Use MF_POPUP for top entries
-	//Use MF_END for last (top or pulldown) entry
-	//MF_GRAYED|MF_DISABLED|4=right_justify|MF_CHECKED|MF_MENUBARBREAK|MF_MENUBREAK|MF_OWNERDRAW
-	/*
+	// initialize FINDREPLACE data structure
 	{
-		short sbuf[4096];
-		short* sptr;
-		sptr = menustart(sbuf);
-		sptr = menuadd(sptr, "&File", MF_POPUP, 0);
-		sptr = menuadd(sptr, "&New", MF_POPUP, 0);
-		sptr = menuadd(sptr, "Blank", 0, MENU_FILENEW + 0);
-		sptr = menuadd(sptr, "GLSL (minimal)", 0, MENU_FILENEW + 1);
-		sptr = menuadd(sptr, "GLSL", 0, MENU_FILENEW + 2);
-		sptr = menuadd(sptr, "ARB ASM", MF_END, MENU_FILENEW + 3);
-		sptr = menuadd(sptr, "&Open\tCtrl+L", 0, MENU_FILEOPEN);
-		sptr = menuadd(sptr, "&Save\tCtrl+S", 0, MENU_FILESAVE);
-		sptr = menuadd(sptr, "Save &As", 0, MENU_FILESAVEAS);
-		sptr = menuadd(sptr, "", MF_SEPARATOR, 0);
-		sptr = menuadd(sptr, "E&xit\tAlt+F4", MF_END, MENU_FILEEXIT);
-		sptr = menuadd(sptr, "&Edit", MF_POPUP, 0);
-		sptr = menuadd(sptr, "&Find...\tCtrl+F", 0, MENU_EDITFIND);
-		sptr = menuadd(sptr, "Find &Next\tF3", 0, MENU_EDITFINDNEXT);
-		sptr = menuadd(sptr, "Find &Previous\tShift+F3", 0, MENU_EDITFINDPREV);
-		sptr = menuadd(sptr, "&Replace...\tCtrl+R", MF_END, MENU_EDITREPLACE);
-		sptr = menuadd(sptr, "&Options", MF_POPUP, 0);
-		sptr = menuadd(sptr, "Compile on Ctrl+Enter", s_popts.compctrlent*MF_CHECKED, MENU_COMPCONTENT);
-		sptr = menuadd(sptr, "Evaluate highlighted text\tCtrl+'='", 0, MENU_EVALHIGHLIGHT);
-		sptr = menuadd(sptr, "Select Render corner", MF_POPUP, 0);
-		sptr = menuadd(sptr, "Top Left", (s_popts.rendcorn == 0)*MF_CHECKED, MENU_RENDPLC + 0);
-		sptr = menuadd(sptr, "Top Right", (s_popts.rendcorn == 1)*MF_CHECKED, MENU_RENDPLC + 1);
-		sptr = menuadd(sptr, "Bottom Left", (s_popts.rendcorn == 2)*MF_CHECKED, MENU_RENDPLC + 2);
-		sptr = menuadd(sptr, "Bottom Right", (s_popts.rendcorn == 3)*MF_CHECKED | MF_END, MENU_RENDPLC + 3);
-		sptr = menuadd(sptr, "Fullscreen Render\tAlt+Enter", (s_popts.fullscreen != 0)*MF_CHECKED, MENU_FULLSCREEN);
-		sptr = menuadd(sptr, "Clear screen every frame", (s_popts.clearbuffer != 0)*MF_CHECKED, MENU_CLEARBUFFER);
-		sptr = menuadd(sptr, "Select &Font..", MF_END, MENU_FONT);
-		sptr = menuadd(sptr, "&Help", MF_POPUP | MF_END, 0);
-		sptr = menuadd(sptr, "   &About\tF1", MF_END, MENU_HELPABOUT);
-		s_HMenu = LoadMenuIndirect(sbuf);
-		SetMenu(s_HWndMain, s_HMenu);
+		s_FindReplaceInfo.lStructSize = sizeof(s_FindReplaceInfo);
+		s_FindReplaceInfo.hwndOwner = s_HWndMain;
+		s_FindReplaceInfo.hInstance = s_HInst;
+		s_FindReplaceInfo.Flags = FR_DOWN;
+		s_FindReplaceInfo.lpstrFindWhat = s_FindText;
+		s_FindReplaceInfo.lpstrReplaceWith = s_ReplaceText;
+		s_FindReplaceInfo.wFindWhatLen = sizeof(s_FindText);
+		s_FindReplaceInfo.wReplaceWithLen = sizeof(s_ReplaceText);
+		s_FindReplaceInfo.lCustData = 0;
+		s_FindReplaceInfo.lpfnHook = 0;
+		s_FindReplaceInfo.lpTemplateName = 0;
 	}
-	*/
 
 	// create OpenGL context
 	HDC hDC;
 	HGLRC hRC;
-
 	EnableOpenGL(s_HWndRender, hDC, hRC);
 
 	// initialize GLEW extension handler
@@ -3021,7 +3047,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	s_OText[0] = 0;
 
 	if (argfilindex >= 0)
-		LoadFile(argv[argfilindex], s_HWndEditor);
+		LoadFile(argv[argfilindex]);
 
 	SetFocus(s_HWndEditor);
 
@@ -3077,11 +3103,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		glClearColor(0.f, 0.f, 0.f, 0.f);
 
-		if (s_popts.clearbuffer)
+		if (s_AppOptions.clearBufferEachFrame)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 		glEnable(GL_DEPTH_TEST);
-		glViewport(0, 0, (int)g_RenderWidth, (int)g_RenderHeight);
+		glViewport(0, 0, (int)s_RenderWidth, (int)s_RenderHeight);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
 
@@ -3090,7 +3116,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		{
 			double fovy = s_FOV;
-			double xy = g_RenderWidth / g_RenderHeight;
+			double xy = s_RenderWidth / s_RenderHeight;
 			double z0 = 0.1;
 			double z1 = 1000.0;
 
@@ -3103,7 +3129,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		glLoadIdentity();
 
 		GetWindowText(s_HWndEditor, s_Text, s_TextSize);
-		g_TSec = Text2Sections(s_Text);
+		g_TextSections = Text2Sections(s_Text);
 
 		SetShaders(s_HWndMain, s_HWndEditor);
 
@@ -3114,10 +3140,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		{
 			Sleep(1);
 
-			if (s_popts.rendcorn == 4) //&& s_mehax)
+			if (s_AppOptions.renderCorner == 4)
 			{
-				CheckMenuItem(s_HMenu, MENU_FULLSCREEN, 0);
-				s_popts.fullscreen = 0;
+				CheckMenuItem(::GetMenu(s_HWndMain), IDM_OPTIONS_FULLSCREEN, 0);
+				s_AppOptions.fullscreen = 0;
 				ResetWindows(SW_NORMAL);
 			}
 		}
@@ -3126,33 +3152,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		//g_OTSecN = g_TSecN;
 		//memcpy(g_OTSec, g_TSec, g_TSecN*sizeof(tsec_t));
-		g_OTSec = g_TSec;
+		g_OldTextSections = g_TextSections;
 
 		SwapBuffers(hDC);
 
 		QueryPerformanceCounter((LARGE_INTEGER*)&q);
 		qnum++;
 
-		if ((q - qlast) > g_qper || !s_SaveFilenamePtr)
+		if ((q - qlast) > g_qper) //|| !s_SaveFilenamePtr)
 		{
-			s_SaveFilenamePtr = s_SaveFilename;
-
-			for (i = 0; s_SaveFilename[i]; i++)
-			{
-				if (s_SaveFilename[i] == '\\')
-					s_SaveFilenamePtr = &s_SaveFilename[i + 1];
-			}
-
-			i = sprintf(buf, "%s", s_ProgramName);
-
-			if (s_SaveFilename[0])
-				i += sprintf(&buf[i], " - %s", s_SaveFilenamePtr);
-
-			if (SendMessage(s_HWndEditor, EM_GETMODIFY, 0, 0))
-				i += sprintf(&buf[i], " *");
-
-			i += sprintf(&buf[i], " (%.1f fps)", ((double)g_qper)*((double)qnum) / ((double)(q - qlast)));
-
+			char buf[1024];
+			sprintf(buf, "%s - %s%s (%.1f fps)",
+				s_ProgramName,
+				(s_CurrentFilename.empty() ? "New File" : s_CurrentFilename.c_str()),
+				(s_TextIsDirty ? "*" : ""),
+				((double)g_qper)*((double)qnum) / ((double)(q - qlast)));
 			qlast = q;
 			qnum = 0;
 			SetWindowText(s_HWndMain, buf);
@@ -3160,8 +3174,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 quitit:
-	//passasksave();
-
 	glDeleteQueries(1, (GLuint*)g_Queries);
 
 	MIDIUninit();

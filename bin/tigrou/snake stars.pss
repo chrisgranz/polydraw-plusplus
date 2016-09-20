@@ -132,3 +132,4 @@ void main()
 {
    gl_FragColor = vec4(1.0 - abs(pow(p.z, 3.0)) / 200000000.0) * abs(sin(c.z));
 }
+
