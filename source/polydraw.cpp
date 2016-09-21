@@ -284,6 +284,9 @@ void CheckMenus()
 	EnableAMenuItem(IDM_EDIT_PASTE, SendEditor(EM_CANPASTE) != 0 ? true : false);
 
 	EnableAMenuItem(IDM_EDIT_REPLACE, false); // FIXME: temp
+
+	EnableAMenuItem(IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME, false); // FIXME: temp
+	EnableAMenuItem(IDM_OPTIONS_COMPILE_ON_CTRL_ENTER, false); // FIXME: temp
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -632,7 +635,8 @@ static void printg_init()
 	int j, x, y, xsiz, ysiz, *iptr, *tbuf;
 
 	// Load 6x8(x256) font
-	xsiz = 8; ysiz = 8*256;
+	xsiz = 8;
+	ysiz = 8*256;
 
 	if ((tbuf = (int*)malloc(xsiz*ysiz*4)) == NULL)
 		return;
@@ -709,8 +713,6 @@ double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 	*/
 	glUseProgram(0);
 
-	//if (g_glfp[glActiveTexture])
-	//	((PFNGLACTIVETEXTUREPROC)g_glfp[glActiveTexture])(GL_TEXTURE0);
 	glActiveTexture(GL_TEXTURE0);
 
 	glPushAttrib(GL_ENABLE_BIT | GL_MODELVIEW);
@@ -1089,13 +1091,6 @@ static std::vector<TestSection> Text2Sections(char* text)
 			return sections;
 	}
 
-	//ltsec[n].i0 = i0;
-	//ltsec[n].i1 = i;
-	//ltsec[n].type = ntyp;
-	//ltsec[n].count = scnt[ntyp];
-	//ltsec[n].lineOffset = olin;
-	//ltsec[n].nextType = -1;
-
 	// save last section in sections collection
 	{
 		sec.i0 = i0;
@@ -1213,8 +1208,8 @@ static void SetShaders(HWND h, HWND hWndEdit)
 
 		for (tseci = 0; tseci < g_TextSections.size(); tseci++)
 		{
-			//Compare block
-			if (!g_TextSections[tseci].type)
+			// Compare block
+			if (g_TextSections[tseci].type == 0)
 				continue;
 
 			if (tseci >= g_OldTextSections.size() || g_TextSections[tseci].type != g_OldTextSections[tseci].type)
@@ -1577,20 +1572,6 @@ extern void SaveFileDialog();
 static void SaveFile(const std::string& filename);
 static int SaveIfUnsure()
 {
-	/*
-	if (!SendMessage(s_HWndEditor, EM_GETMODIFY, 0, 0))
-		return 1;
-
-	switch (MessageBox(s_HWndMain, "Save changes?", s_ProgramName, MB_YESNOCANCEL))
-	{
-		case IDYES: SaveFileDialog(s_HWndMain); return 1;
-		case IDNO: return 1;
-		case IDCANCEL: break;
-	}
-
-	return 0;
-	*/
-
 	if (!s_TextIsDirty)
 		return IDYES;
 
@@ -1621,9 +1602,6 @@ static int SaveIfUnsure()
 ///////////////////////////////////////////////////////////////////////////////
 static void NewFile(int mode)
 {
-	//if (!SaveIfUnsure())
-	//	return;
-
 	if (mode == 0)
 	{
 		SetWindowText(s_HWndEditor, "");
@@ -2022,6 +2000,7 @@ static void HelpAbout()
 static HWND s_HWndFind = 0;
 static unsigned int s_FindMsg = 0;
 static FINDREPLACE s_FindReplaceInfo; // Must be global/static
+static int s_CurrentFindPos = 0;
 static char s_FindText[256];    // Must be global/static and sizeof >= 80
 static char s_ReplaceText[256]; // Must be global/static and sizeof >= 80
 //static int gfind_inited = 0;
@@ -2411,6 +2390,7 @@ static void ProcessCommand(int id)
 	case IDM_FILE_SAVE: SaveFile(s_CurrentFilename); break;
 	case IDM_FILE_SAVEAS: SaveFileDialog(); break;
 		break;
+
 	case IDM_FILE_EXIT:
 		if (SaveIfUnsure() != IDCANCEL)
 			::PostQuitMessage(0);
@@ -2430,10 +2410,83 @@ static void ProcessCommand(int id)
 		break;
 
 	case IDM_EDIT_FIND_NEXT:
+	{
+		/*
+		int findleng = strlen(s_FindReplaceInfo.lpstrFindWhat);
+		int pos = SendMessage(s_HWndEditor, SCI_SEARCHINTARGET, findleng, (LPARAM)s_FindReplaceInfo.lpstrFindWhat);
+
+		SendMessage(s_HWndEditor, SCI_SETSEL, pos, pos + findleng);
+
+		// reset target
+		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		auto textleng = strlen(s_TText);
+		//auto currentPos = SendMessage(hwnd, SCI_GETCURRENTPOS, 0, 0);
+		//SendMessage(hwnd, SCI_SETTARGETSTART, currentPos, 0);
+		SendMessage(s_HWndEditor, SCI_SETTARGETSTART, pos + findleng, 0);
+		SendMessage(s_HWndEditor, SCI_SETTARGETEND, textleng, 0);
+		*/
+
+		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		auto textLength = strlen(s_TText);
+		//auto currentCursorPos = SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+
+		TextToFind textToFind;
+		textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+		textToFind.chrg.cpMin = s_CurrentFindPos;
+		textToFind.chrg.cpMax = textLength;
+		int flags = 0;
+
+		if (s_FindReplaceInfo.Flags & FR_MATCHCASE)
+			flags |= SCFIND_MATCHCASE;
+
+		if (s_FindReplaceInfo.Flags & FR_WHOLEWORD)
+			flags |= SCFIND_WHOLEWORD;
+
+		if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
+		{
+			::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMin, textToFind.chrgText.cpMax);
+			s_CurrentFindPos = textToFind.chrgText.cpMax;
+		}
+		else
+		{
+			::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
+			s_CurrentFindPos = 0;
+		}
+
 		break;
+	}
 
 	case IDM_EDIT_FIND_PREVIOUS:
+	{
+		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		auto textLength = strlen(s_TText);
+		//auto currentCursorPos = SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+
+		TextToFind textToFind;
+		textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+		textToFind.chrg.cpMin = 0;
+		textToFind.chrg.cpMax = s_CurrentFindPos;
+		int flags = 0;
+
+		if (s_FindReplaceInfo.Flags & FR_MATCHCASE)
+			flags |= SCFIND_MATCHCASE;
+
+		if (s_FindReplaceInfo.Flags & FR_WHOLEWORD)
+			flags |= SCFIND_WHOLEWORD;
+
+		if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
+		{
+			::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMin, textToFind.chrgText.cpMax);
+			s_CurrentFindPos = textToFind.chrgText.cpMin;
+		}
+		else
+		{
+			::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
+			s_CurrentFindPos = textLength;
+		}
+
 		break;
+	}
 
 	case IDM_EDIT_REPLACE:
 		s_HWndFind = ReplaceText(&s_FindReplaceInfo);

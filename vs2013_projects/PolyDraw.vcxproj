@@ -43,13 +43,13 @@
     <IncludePath>..\include;$(IncludePath)</IncludePath>
     <OutDir>$(ProjectDir)..\build\Debug\</OutDir>
     <IntDir>$(ProjectDir)..\build\Debug\obj\</IntDir>
-    <LibraryPath>C:\Users\Christopher D. Granz\Documents\Repos\polydraw-plusplus\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>..\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(ProjectDir)..\build\Release\</OutDir>
     <IntDir>$(ProjectDir)..\build\Release\obj\</IntDir>
     <IncludePath>..\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Christopher D. Granz\Documents\Repos\polydraw-plusplus\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>..\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

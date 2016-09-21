@@ -1,8 +1,8 @@
 // Microsoft Visual C++ generated resource script.
 //
 #include <windows.h>
-
 #include "resource.h"
+
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
 
@@ -57,7 +57,7 @@ BEGIN
             MENUITEM "Render Bottom Left",          IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_LEFT
             MENUITEM "Render Bottom Right",         IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_RIGHT
         END
-        MENUITEM "Clear &Display Each Frame",   IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME
+        MENUITEM "Clear &Display Before Each Frame", IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME
         MENUITEM "&Compile On Ctrl+Enter",      IDM_OPTIONS_COMPILE_ON_CTRL_ENTER
     END
     POPUP "&Help"
