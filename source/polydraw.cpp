@@ -34,6 +34,63 @@
 // * refresh()
 // * allow mouse to resize render window with <-> cursor
 
+///////////////////////////////////////////////////////////////////////////////
+// NOTE: font is stored vertically first! (like .ART files)
+static const __int64 s_Font6x8[] = // 256 DOS chars, from: DOSAPP.FON (tab blank)
+{
+	0x3E00000000000000, 0x6F6B3E003E455145, 0x1C3E7C3E1C003E6B, 0x3000183C7E3C1800,
+	0x7E5C180030367F36, 0x000018180000185C, 0x0000FFFFE7E7FFFF, 0xDBDBC3FF00000000,
+	0x0E364A483000FFC3, 0x6000062979290600, 0x0A7E600004023F70, 0x2A1C361C2A003F35,
+	0x0800081C3E7F0000, 0x7F361400007F3E1C, 0x005F005F00001436, 0x22007F017F090600,
+	0x606060002259554D, 0x14B6FFB614000060, 0x100004067F060400, 0x3E08080010307F30,
+	0x08083E1C0800081C, 0x0800404040407800, 0x3F3C3000083E083E, 0x030F3F0F0300303C,
+	0x0000000000000000, 0x0003070000065F06, 0x247E247E24000307, 0x630000126A2B2400,
+	0x5649360063640813, 0x0000030700005020, 0x00000000413E0000, 0x1C3E080000003E41,
+	0x08083E080800083E, 0x0800000060E00000, 0x6060000008080808, 0x0204081020000000,
+	0x00003E4549513E00, 0x4951620000407F42, 0x3649494922004649, 0x2F00107F12141800,
+	0x494A3C0031494949, 0x0305097101003049, 0x0600364949493600, 0x6C6C00001E294949,
+	0x00006CEC00000000, 0x2400004122140800, 0x2241000024242424, 0x0609590102000814,
+	0x7E001E555D413E00, 0x49497F007E111111, 0x224141413E003649, 0x7F003E4141417F00,
+	0x09097F0041494949, 0x7A4949413E000109, 0x00007F0808087F00, 0x4040300000417F41,
+	0x412214087F003F40, 0x7F00404040407F00, 0x04027F007F020402, 0x3E4141413E007F08,
+	0x3E00060909097F00, 0x09097F005E215141, 0x3249494926006619, 0x3F0001017F010100,
+	0x40201F003F404040, 0x3F403C403F001F20, 0x0700631408146300, 0x4549710007087008,
+	0x0041417F00000043, 0x0000201008040200, 0x01020400007F4141, 0x8080808080800402,
+	0x2000000007030000, 0x44447F0078545454, 0x2844444438003844, 0x38007F4444443800,
+	0x097E080008545454, 0x7CA4A4A418000009, 0x0000007804047F00, 0x8480400000407D00,
+	0x004428107F00007D, 0x7C0000407F000000, 0x04047C0078041804, 0x3844444438000078,
+	0x380038444444FC00, 0x44784400FC444444, 0x2054545408000804, 0x3C000024443E0400,
+	0x40201C00007C2040, 0x3C6030603C001C20, 0x9C00006C10106C00, 0x54546400003C60A0,
+	0x0041413E0800004C, 0x0000000077000000, 0x02010200083E4141, 0x3C2623263C000001,
+	0x3D001221E1A11E00, 0x54543800007D2040, 0x7855555520000955, 0x2000785554552000,
+	0x5557200078545555, 0x1422E2A21C007857, 0x3800085555553800, 0x5555380008555455,
+	0x00417C0100000854, 0x0000004279020000, 0x2429700000407C01, 0x782F252F78007029,
+	0x3400455554547C00, 0x7F097E0058547C54, 0x0039454538004949, 0x3900003944453800,
+	0x21413C0000384445, 0x007C20413D00007D, 0x3D00003D60A19C00, 0x40413C00003D4242,
+	0x002466241800003D, 0x29006249493E4800, 0x16097F00292A7C2A, 0x02097E8840001078,
+	0x0000785555542000, 0x4544380000417D00, 0x007D21403C000039, 0x7A0000710A097A00,
+	0x5555080000792211, 0x004E51514E005E55, 0x3C0020404D483000, 0x0404040404040404,
+	0x506A4C0817001C04, 0x0000782A34081700, 0x0014080000307D30, 0x0814000814001408,
+	0x55AA114411441144, 0xEEBBEEBB55AA55AA, 0x0000FF000000EEBB, 0x0A0A0000FF080808,
+	0xFF00FF080000FF0A, 0x0000F808F8080000, 0xFB0A0000FE0A0A0A, 0xFF00FF000000FF00,
+	0x0000FE02FA0A0000, 0x0F0800000F080B0A, 0x0F0A0A0A00000F08, 0x0000F80808080000,
+	0x080808080F000000, 0xF808080808080F08, 0x0808FF0000000808, 0x0808080808080808,
+	0xFF0000000808FF08, 0x0808FF00FF000A0A, 0xFE000A0A0B080F00, 0x0B080B0A0A0AFA02,
+	0x0A0AFA02FA0A0A0A, 0x0A0A0A0AFB00FF00, 0xFB00FB0A0A0A0A0A, 0x0A0A0B0A0A0A0A0A,
+	0x0A0A08080F080F08, 0xF808F8080A0AFA0A, 0x08080F080F000808, 0x00000A0A0F000000,
+	0xF808F8000A0AFE00, 0x0808FF00FF080808, 0x08080A0AFB0A0A0A, 0xF800000000000F08,
+	0xFFFFFFFFFFFF0808, 0xFFFFF0F0F0F0F0F0, 0xFF000000000000FF, 0x0F0F0F0F0F0FFFFF,
+	0xFE00241824241800, 0x01017F0000344A4A, 0x027E027E02000003, 0x1800006349556300,
+	0x2020FC00041C2424, 0x000478040800001C, 0x3E00085577550800, 0x02724C00003E4949,
+	0x0030595522004C72, 0x1800182418241800, 0x2A2A1C0018247E24, 0x003C02023C00002A,
+	0x0000002A2A2A2A00, 0x4A4A510000242E24, 0x00514A4A44000044, 0x20000402FC000000,
+	0x2A08080000003F40, 0x0012241224000808, 0x0000000609090600, 0x0008000000001818,
+	0x02023E4030000000, 0x0900000E010E0100, 0x3C3C3C0000000A0D, 0x000000000000003C,
+};
+
+///////////////////////////////////////////////////////////////////////////////
+static unsigned int s_FontID;
+
 static int s_TextSize = 0;
 static char* s_Text = nullptr;
 static char* s_OText = nullptr;
@@ -279,14 +336,18 @@ void EnableAMenuItem(int id, bool enable)
 void CheckMenus()
 {
 	EnableAMenuItem(IDM_FILE_SAVE, s_TextIsDirty);
+
 	EnableAMenuItem(IDM_EDIT_UNDO, SendEditor(EM_CANUNDO) != 0 ? true : false);
 	EnableAMenuItem(IDM_EDIT_REDO, SendEditor(SCI_CANREDO) != 0 ? true : false);
 	EnableAMenuItem(IDM_EDIT_PASTE, SendEditor(EM_CANPASTE) != 0 ? true : false);
 
-	EnableAMenuItem(IDM_EDIT_REPLACE, false); // FIXME: temp
+	// FIXME: the following options have not yet been re-implemented, so are disabled for now
+	EnableAMenuItem(IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME, false);
+	EnableAMenuItem(IDM_OPTIONS_COMPILE_ON_CTRL_ENTER, false);
 
-	EnableAMenuItem(IDM_OPTIONS_CLEAR_DISPLAY_EACH_FRAME, false); // FIXME: temp
-	EnableAMenuItem(IDM_OPTIONS_COMPILE_ON_CTRL_ENTER, false); // FIXME: temp
+	EnableAMenuItem(IDM_OPTIONS_LAYOUT_RENDER_TOP_RIGHT, false);
+	EnableAMenuItem(IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_LEFT, false);
+	EnableAMenuItem(IDM_OPTIONS_LAYOUT_RENDER_BOTTOM_RIGHT, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -376,13 +437,13 @@ void kputs(const char* st, int addcr)
 
 	if (!iminmod)
 	{
-		SendMessage(s_HWndConsole, WM_SETTEXT, 0, (long)buf); //SetWindowText(hWndCons,buf);
-		SendMessage(s_HWndConsole, EM_LINESCROLL, 0, 0x7fffffff);
+		::SendMessage(s_HWndConsole, WM_SETTEXT, 0, (long)buf); //SetWindowText(hWndCons,buf);
+		::SendMessage(s_HWndConsole, EM_LINESCROLL, 0, 0x7fffffff);
 	}
 	else
 	{
-		SendMessage(s_HWndConsole, EM_SETSEL, iminmod, obufleng);
-		SendMessage(s_HWndConsole, EM_REPLACESEL, 0, (LPARAM)&buf[iminmod]);
+		::SendMessage(s_HWndConsole, EM_SETSEL, iminmod, obufleng);
+		::SendMessage(s_HWndConsole, EM_REPLACESEL, 0, (LPARAM)&buf[iminmod]);
 	}
 }
 
@@ -500,54 +561,108 @@ static unsigned int __stdcall watchthread(void*)
 ///////////////////////////////////////////////////////////////////////////////
 static int myprintf_check(char* fmt)
 {
-	int i, inperc, inslash;
+	if (fmt == nullptr)
+		return -1;
 
-	if (!fmt) return(-1);
+	int inperc = 0;
+	int inslash = 0; // Filter out
 
-	inperc = 0; inslash = 0; // Filter out
-
-	for (i = 0; fmt[i]; i++)
+	for (int i = 0; fmt[i]; i++)
 	{
-		if (inslash) { inslash = 0; continue; }
-		if (fmt[i] == '\\') { inslash = 1; continue; }
-		if (fmt[i] == '%') { inperc ^= 1; continue; }
-		if (!inperc) continue;
+		if (inslash)
+		{
+			inslash = 0;
+			continue;
+		}
 
-		//int types
-		if ((fmt[i] == 'c') || (fmt[i] == 'C') || (fmt[i] == 'd') || (fmt[i] == 'i') ||
-			 (fmt[i] == 'o') || (fmt[i] == 'u') || (fmt[i] == 'x') || (fmt[i] == 'X'))
-			{ kputs("invalid %",1); return(0); }
+		if (fmt[i] == '\\')
+		{
+			inslash = 1;
+			continue;
+		}
 
-		//double types
-		if ((fmt[i] == 'e') || (fmt[i] == 'E') || (fmt[i] == 'f') || (fmt[i] == 'g') || (fmt[i] == 'G'))
-			{ inperc = 0; continue; }
+		if (fmt[i] == '%')
+		{
+			inperc ^= 1;
+			continue;
+		}
 
-		//pointer types
-		if ((fmt[i] == 'n') || (fmt[i] == 'p') || (fmt[i] == 's') || (fmt[i] == 'S') || (fmt[i] == 'Z'))
-			{ kputs("invalid %",1); return(0); }
+		if (!inperc)
+			continue;
+
+		// int types
+		if (fmt[i] == 'c' || fmt[i] == 'C' || fmt[i] == 'd' || fmt[i] == 'i'
+		  || fmt[i] == 'o' || fmt[i] == 'u' || fmt[i] == 'x' || fmt[i] == 'X')
+		{
+			kputs("invalid %", 1);
+			return 0;
+		}
+
+		// double types
+		if (fmt[i] == 'e' || fmt[i] == 'E' || fmt[i] == 'f' || fmt[i] == 'g' || fmt[i] == 'G')
+		{
+			inperc = 0;
+			continue;
+		}
+
+		// pointer types
+		if (fmt[i] == 'n' || fmt[i] == 'p' || fmt[i] == 's' || fmt[i] == 'S' || fmt[i] == 'Z')
+		{
+			kputs("invalid %", 1);
+			return 0;
+		}
 	}
-	return(1);
+
+	return 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 static void myprintf_filter(char* st)
 {
-	int i, j, inslash;
+	// Filter \\, \n, etc..
+	int inslash = 0;
+	int j = 0;
 
-	//Filter \\, \n, etc..
-	inslash = 0;
-	for (i = 0, j = 0; st[i]; i++)
+	for (int i = 0; st[i]; i++)
 	{
 		if (inslash)
 		{
 			inslash = 0;
-			if (st[i] == 'b') { if (j) j--; continue; }
-			if (st[i] == 'r') { st[j++] = 13; continue; }
-			if (st[i] == 'n') { st[j++] = 10; continue; }
-			if (st[i] == 't') { st[j++] = 9; continue; }
-		} else if (st[i] == '\\') { inslash = 1; continue; }
+			if (st[i] == 'b')
+			{
+				if (j)
+					j--;
+
+				continue;
+			}
+
+			if (st[i] == 'r')
+			{
+				st[j++] = 13;
+				continue;
+			}
+
+			if (st[i] == 'n')
+			{
+				st[j++] = 10;
+				continue;
+			}
+
+			if (st[i] == 't')
+			{
+				st[j++] = 9;
+				continue;
+			}
+		}
+		else if (st[i] == '\\')
+		{
+			inslash = 1;
+			continue;
+		}
+
 		st[j++] = st[i];
 	}
+
 	st[j] = 0;
 }
 
@@ -572,64 +687,6 @@ double __cdecl myprintf(char *fmt, ...)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// NOTE: font is stored vertically first! (like .ART files)
-static const __int64 font6x8[] = //256 DOS chars, from: DOSAPP.FON (tab blank)
-{
-	0x3E00000000000000, 0x6F6B3E003E455145, 0x1C3E7C3E1C003E6B, 0x3000183C7E3C1800,
-	0x7E5C180030367F36, 0x000018180000185C, 0x0000FFFFE7E7FFFF, 0xDBDBC3FF00000000,
-	0x0E364A483000FFC3, 0x6000062979290600, 0x0A7E600004023F70, 0x2A1C361C2A003F35,
-	0x0800081C3E7F0000, 0x7F361400007F3E1C, 0x005F005F00001436, 0x22007F017F090600,
-	0x606060002259554D, 0x14B6FFB614000060, 0x100004067F060400, 0x3E08080010307F30,
-	0x08083E1C0800081C, 0x0800404040407800, 0x3F3C3000083E083E, 0x030F3F0F0300303C,
-	0x0000000000000000, 0x0003070000065F06, 0x247E247E24000307, 0x630000126A2B2400,
-	0x5649360063640813, 0x0000030700005020, 0x00000000413E0000, 0x1C3E080000003E41,
-	0x08083E080800083E, 0x0800000060E00000, 0x6060000008080808, 0x0204081020000000,
-	0x00003E4549513E00, 0x4951620000407F42, 0x3649494922004649, 0x2F00107F12141800,
-	0x494A3C0031494949, 0x0305097101003049, 0x0600364949493600, 0x6C6C00001E294949,
-	0x00006CEC00000000, 0x2400004122140800, 0x2241000024242424, 0x0609590102000814,
-	0x7E001E555D413E00, 0x49497F007E111111, 0x224141413E003649, 0x7F003E4141417F00,
-	0x09097F0041494949, 0x7A4949413E000109, 0x00007F0808087F00, 0x4040300000417F41,
-	0x412214087F003F40, 0x7F00404040407F00, 0x04027F007F020402, 0x3E4141413E007F08,
-	0x3E00060909097F00, 0x09097F005E215141, 0x3249494926006619, 0x3F0001017F010100,
-	0x40201F003F404040, 0x3F403C403F001F20, 0x0700631408146300, 0x4549710007087008,
-	0x0041417F00000043, 0x0000201008040200, 0x01020400007F4141, 0x8080808080800402,
-	0x2000000007030000, 0x44447F0078545454, 0x2844444438003844, 0x38007F4444443800,
-	0x097E080008545454, 0x7CA4A4A418000009, 0x0000007804047F00, 0x8480400000407D00,
-	0x004428107F00007D, 0x7C0000407F000000, 0x04047C0078041804, 0x3844444438000078,
-	0x380038444444FC00, 0x44784400FC444444, 0x2054545408000804, 0x3C000024443E0400,
-	0x40201C00007C2040, 0x3C6030603C001C20, 0x9C00006C10106C00, 0x54546400003C60A0,
-	0x0041413E0800004C, 0x0000000077000000, 0x02010200083E4141, 0x3C2623263C000001,
-	0x3D001221E1A11E00, 0x54543800007D2040, 0x7855555520000955, 0x2000785554552000,
-	0x5557200078545555, 0x1422E2A21C007857, 0x3800085555553800, 0x5555380008555455,
-	0x00417C0100000854, 0x0000004279020000, 0x2429700000407C01, 0x782F252F78007029,
-	0x3400455554547C00, 0x7F097E0058547C54, 0x0039454538004949, 0x3900003944453800,
-	0x21413C0000384445, 0x007C20413D00007D, 0x3D00003D60A19C00, 0x40413C00003D4242,
-	0x002466241800003D, 0x29006249493E4800, 0x16097F00292A7C2A, 0x02097E8840001078,
-	0x0000785555542000, 0x4544380000417D00, 0x007D21403C000039, 0x7A0000710A097A00,
-	0x5555080000792211, 0x004E51514E005E55, 0x3C0020404D483000, 0x0404040404040404,
-	0x506A4C0817001C04, 0x0000782A34081700, 0x0014080000307D30, 0x0814000814001408,
-	0x55AA114411441144, 0xEEBBEEBB55AA55AA, 0x0000FF000000EEBB, 0x0A0A0000FF080808,
-	0xFF00FF080000FF0A, 0x0000F808F8080000, 0xFB0A0000FE0A0A0A, 0xFF00FF000000FF00,
-	0x0000FE02FA0A0000, 0x0F0800000F080B0A, 0x0F0A0A0A00000F08, 0x0000F80808080000,
-	0x080808080F000000, 0xF808080808080F08, 0x0808FF0000000808, 0x0808080808080808,
-	0xFF0000000808FF08, 0x0808FF00FF000A0A, 0xFE000A0A0B080F00, 0x0B080B0A0A0AFA02,
-	0x0A0AFA02FA0A0A0A, 0x0A0A0A0AFB00FF00, 0xFB00FB0A0A0A0A0A, 0x0A0A0B0A0A0A0A0A,
-	0x0A0A08080F080F08, 0xF808F8080A0AFA0A, 0x08080F080F000808, 0x00000A0A0F000000,
-	0xF808F8000A0AFE00, 0x0808FF00FF080808, 0x08080A0AFB0A0A0A, 0xF800000000000F08,
-	0xFFFFFFFFFFFF0808, 0xFFFFF0F0F0F0F0F0, 0xFF000000000000FF, 0x0F0F0F0F0F0FFFFF,
-	0xFE00241824241800, 0x01017F0000344A4A, 0x027E027E02000003, 0x1800006349556300,
-	0x2020FC00041C2424, 0x000478040800001C, 0x3E00085577550800, 0x02724C00003E4949,
-	0x0030595522004C72, 0x1800182418241800, 0x2A2A1C0018247E24, 0x003C02023C00002A,
-	0x0000002A2A2A2A00, 0x4A4A510000242E24, 0x00514A4A44000044, 0x20000402FC000000,
-	0x2A08080000003F40, 0x0012241224000808, 0x0000000609090600, 0x0008000000001818,
-	0x02023E4030000000, 0x0900000E010E0100, 0x3C3C3C0000000A0D, 0x000000000000003C,
-};
-
-///////////////////////////////////////////////////////////////////////////////
-extern void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype);
-static unsigned int s_fontid;
-
-///////////////////////////////////////////////////////////////////////////////
 static void printg_init()
 {
 	int j, x, y, xsiz, ysiz, *iptr, *tbuf;
@@ -647,7 +704,7 @@ static void printg_init()
 		{
 			if (x < 6)
 			{
-				if (((char*)font6x8)[(y >> 3) * 6 + (x & 7)] & (1 << (y & 7)))
+				if (((char*)s_Font6x8)[(y >> 3) * 6 + (x & 7)] & (1 << (y & 7)))
 					j = -1;
 				else
 					j = 0;
@@ -659,8 +716,8 @@ static void printg_init()
 		}
 	}
 
-	s_fontid = MAX_USER_TEXURES;
-	CreateEmptyTexture(s_fontid, xsiz, ysiz, 1, KGL_NEAREST + KGL_CLAMP_TO_EDGE);
+	s_FontID = MAX_USER_TEXURES;
+	CreateEmptyTexture(s_FontID, xsiz, ysiz, 1, KGL_NEAREST + KGL_CLAMP_TO_EDGE);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, xsiz, ysiz, GL_BGRA_EXT, GL_UNSIGNED_BYTE, tbuf);
 
 	free((void*)tbuf);
@@ -717,8 +774,13 @@ double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 
 	glPushAttrib(GL_ENABLE_BIT | GL_MODELVIEW);
 	glGetDoublev(GL_CURRENT_COLOR, ocol);
-	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, s_RenderWidth, s_RenderHeight, 0, -1, 1);
-	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, s_RenderWidth, s_RenderHeight, 0, -1, 1);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
 
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -726,7 +788,7 @@ double myprintg(double dx, double dy, double dfcol, char *fmt, ...)
 
 	glColor3ub((fcol >> 16) & 255, (fcol >> 8) & 255, fcol & 255);
 	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, s_fontid);
+	glBindTexture(GL_TEXTURE_2D, s_FontID);
 	glBegin(GL_QUADS);
 	intab = 0;
 
@@ -931,6 +993,7 @@ double MIDIPlayNote(double chn, double frq, double vol)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Parse script for '@' lines, generating list of sections
+///////////////////////////////////////////////////////////////////////////////
 static std::vector<TestSection> Text2Sections(char* text)
 {
 	std::vector<TestSection> sections;
@@ -1368,6 +1431,7 @@ static void SetShaders(HWND h, HWND hWndEdit)
 // This cover function protects SOME cases
 static EXCEPTION_RECORD gexception_record;
 static CONTEXT gexception_context;
+
 static int myexception_getaddr(LPEXCEPTION_POINTERS pxi)
 {
 	memcpy(&gexception_record, pxi->ExceptionRecord, sizeof(EXCEPTION_RECORD));
@@ -1568,8 +1632,9 @@ static void Render(HWND hWnd, HWND hWndEdit)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-extern void SaveFileDialog();
+bool SaveFileDialog();
 static void SaveFile(const std::string& filename);
+
 static int SaveIfUnsure()
 {
 	if (!s_TextIsDirty)
@@ -1580,7 +1645,10 @@ static int SaveIfUnsure()
 		auto choice = MessageBox(s_HWndMain, "Save changes (new file)?", s_ProgramName, MB_YESNOCANCEL);
 
 		if (choice == IDYES)
-			SaveFileDialog();
+		{
+			if (!SaveFileDialog()) // catch user canceled save dialog
+				return IDCANCEL;
+		}
 
 		return choice;
 	}
@@ -1602,6 +1670,9 @@ static int SaveIfUnsure()
 ///////////////////////////////////////////////////////////////////////////////
 static void NewFile(int mode)
 {
+	if (SaveIfUnsure() == IDCANCEL)
+		return;
+
 	if (mode == 0)
 	{
 		SetWindowText(s_HWndEditor, "");
@@ -1609,11 +1680,17 @@ static void NewFile(int mode)
 	else if (mode == 1)
 	{
 		SetWindowText(s_HWndEditor,
-			"glquad(1);\r\n"
+			"glQuad(1);\r\n"
 			"@v\r\n"
-			"void main() { gl_Position = ftransform(); }\r\n"
+			"void main()\r\n"
+			"{\r\n"
+			"\tgl_Position = ftransform();\r\n"
+			"}\r\n\r\n"
 			"@f\r\n"
-			"void main() { gl_FragColor = gl_FragCoord*.001; }");
+			"void main()\r\n"
+			"{\r\n"
+			"\tgl_FragColor = gl_FragCoord*.001;\r\n"
+			"}\r\n");
 	}
 	else if (mode == 2)
 	{
@@ -1621,13 +1698,13 @@ static void NewFile(int mode)
 			"// Host code (EVAL)\r\n"
 			"if (numframes == 0)\r\n"
 			"{\r\n"
-			"\tglsettex(0,\"earth.jpg\");\r\n"
+			"\tglSetTex(0,\"earth.jpg\");\r\n"
 			"\tstatic env;\r\n"
 			"\tenv = glGetUniformLoc(\"env\");\r\n"
 			"}\r\n"
 			"\r\n"
 			"t = klock();\r\n"
-			"glbindtexture(0);\r\n"
+			"glBindTexture(0);\r\n"
 			"glUniform4f(env, cos(t/2), sin(t/2), 0, 0);\r\n"
 			"glUniform4f(env+1, noise(t, 0.5) + 1, noise(t, 1.5) + 1, noise(t, 2.5) + 1, 1);\r\n"
 			"glBegin(GL_QUADS);\r\n"
@@ -1667,11 +1744,11 @@ static void NewFile(int mode)
 			"// Host code (EVAL)\r\n"
 			"if (numframes == 0)\r\n"
 			"{\r\n"
-			"   glsettex(0,\"earth.jpg\");\r\n"
+			"   glSetTex(0,\"earth.jpg\");\r\n"
 			"}\r\n"
 			"\r\n"
 			"t = klock();\r\n"
-			"glbindtexture(0);\r\n"
+			"glBindTexture(0);\r\n"
 			"glProgramEnvParam(0,cos(t/2),sin(t/2),0,0);\r\n"
 			"glProgramEnvParam(1,noise(t,0.5)+1,noise(t,1.5)+1,noise(t,2.5)+1,1);\r\n"
 			"glBegin(GL_QUADS);\r\n"
@@ -1720,7 +1797,7 @@ static void NewFile(int mode)
 static void LoadFile(const std::string& filename)
 {
 	int i, j, k, ind[4], leng, fileformat;
-	char* buf = 0;
+	char* buf = nullptr;
 
 	auto fp = fopen(filename.c_str(), "rb");
 
@@ -1832,7 +1909,7 @@ static void LoadFile(const std::string& filename)
 
 		SendEditor(SCI_CANCEL);
 		SendEditor(SCI_SETUNDOCOLLECTION, 0);
-		SetWindowText(s_HWndEditor, s_Text);
+		::SetWindowText(s_HWndEditor, s_Text);
 		SendEditor(SCI_SETUNDOCOLLECTION, 1);
 		::SetFocus(s_HWndEditor);
 		SendEditor(EM_EMPTYUNDOBUFFER);
@@ -1868,6 +1945,9 @@ static void LoadFile(const std::string& filename)
 ///////////////////////////////////////////////////////////////////////////////
 static void LoadFileDialog()
 {
+	if (SaveIfUnsure() == IDCANCEL)
+		return;
+
 	OPENFILENAME ofn;
 	char szFileName[MAX_PATH] = "";
 
@@ -1911,7 +1991,7 @@ static void SaveFile(const std::string& filename)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-static void SaveFileDialog()
+static bool SaveFileDialog()
 {
 	char filename[MAX_PATH] = "";
 	strcpy(filename, s_CurrentFilename.c_str());
@@ -1926,11 +2006,16 @@ static void SaveFileDialog()
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
 	ofn.lpstrDefExt = "pss";
 
-	if (GetSaveFileName(&ofn))
-		SaveFile(ofn.lpstrFile);
-
 	s_ShiftKeyStatus = 0;
 	memset(s_dkeystatus, 0, sizeof(s_dkeystatus));
+
+	if (GetSaveFileName(&ofn))
+	{
+		SaveFile(ofn.lpstrFile);
+		return true;
+	}
+
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1969,20 +2054,29 @@ static void HelpAbout()
 {
 	char tbuf[1024];
 	sprintf(tbuf,
-		"PolyDraw, an Opengl scripting tool. Compiled: %s\r\n"
+		"PolyDraw++, an OpenGL scripting tool.  Compiled: %s\r\n"
 		"\r\n"
 		"Get latest version here:\r\n"
-		"   http://advsys.net/ken/download.htm#polydraw\r\n"
+		"\r\nhttps://github.com/chrisgranz/polydraw-plusplus\r\n"
 		"\r\n"
 		"Authors:\r\n"
 		"\r\n"
-		"   Ken Silverman (http://advsys.net/ken):\r\n"
-		"      EVAL compiler, GUI cleanup, fixes, enhancements\r\n"
+		"\tChristopher D. Granz (http://christophergranz.com):\r\n"
 		"\r\n"
-		"   Tigrou (tigrou.ind@gmail.com):\r\n"
-		"      Original author & concept. His version here:\r\n"
-		"         http://pouet.net/prod.php?which=54245\r\n"
-		"         ftp://ftp.untergrund.net/users/ind/polydraw.zip\r\n"
+		"\t\t- Replaced OpenGL extension handling with GLEW\r\n"
+		"\t\t- Integrated Scintilla (http://scintilla.org) editor component\r\n"
+		"\t\t- C++ updates\r\n"
+		"\r\n"
+		"\tKen Silverman (http://advsys.net/ken):\r\n"
+		"\t\t- EVAL compiler, GUI cleanup, fixes, enhancements.\r\n"
+		"\t\t- This version derived from Ken's version dated February 7, 2014.\r\n"
+		"\t\t    His version is pure C (no C++) and available here:\r\n"
+		"\t\t    http://advsys.net/ken/download.htm#polydraw\r\n"
+		"\r\n"
+		"\tTigrou (tigrou.ind@gmail.com):\r\n"
+		"\t\t- Original author & concept. His version here:\r\n"
+		"\t\t\t- http://pouet.net/prod.php?which=54245\r\n"
+		"\t\t\t- ftp://ftp.untergrund.net/users/ind/polydraw.zip\r\n"
 		,__DATE__ );
 	MessageBox(s_HWndMain, tbuf, s_ProgramName, MB_OK);
 }
@@ -2000,224 +2094,8 @@ static void HelpAbout()
 static HWND s_HWndFind = 0;
 static unsigned int s_FindMsg = 0;
 static FINDREPLACE s_FindReplaceInfo; // Must be global/static
-static int s_CurrentFindPos = 0;
 static char s_FindText[256];    // Must be global/static and sizeof >= 80
 static char s_ReplaceText[256]; // Must be global/static and sizeof >= 80
-//static int gfind_inited = 0;
-
-///////////////////////////////////////////////////////////////////////////////
-static int findreplace_process(LPFINDREPLACE lpfr)
-{
-	int i, j, /* textleng,*/ findleng, repleng, findsel0, findsel1;
-
-	if (!lpfr)
-		return 0;
-
-	HWND hwnd = s_HWndEditor; //lpfr->hwndOwner;
-
-	if (lpfr->Flags & FR_DIALOGTERM)
-	{
-		SetFocus(hwnd);
-		return 0;
-	}
-
-	if (!(lpfr->Flags & (FR_FINDNEXT | FR_REPLACE | FR_REPLACEALL)))
-		return 0;
-
-//	GetWindowText(hwnd, s_TText, s_TextSize);
-//	textleng = strlen(s_TText);
-//	SendMessage(hwnd, SCI_SETTARGETSTART, 0, 0);
-//	SendMessage(hwnd, SCI_SETTARGETEND, textleng, 0);
-
-	//int t5, t6, t7;
-	//t5 = SendMessage(hwnd, SCI_GETTARGETSTART, 0, 0);
-	//t6 = SendMessage(hwnd, SCI_GETTARGETEND, 0, 0);
-
-	findleng = strlen(lpfr->lpstrFindWhat);
-	int t7 = SendMessage(hwnd, SCI_SEARCHINTARGET, findleng, (LPARAM)lpfr->lpstrFindWhat);
-
-	SendMessage(hwnd, SCI_SETSEL, t7, t7 + findleng);
-
-	// reset target
-	GetWindowText(hwnd, s_TText, s_TextSize);
-	auto textleng = strlen(s_TText);
-	//auto currentPos = SendMessage(hwnd, SCI_GETCURRENTPOS, 0, 0);
-	//SendMessage(hwnd, SCI_SETTARGETSTART, currentPos, 0);
-	SendMessage(hwnd, SCI_SETTARGETSTART, t7 + findleng, 0);
-	SendMessage(hwnd, SCI_SETTARGETEND, textleng, 0);
-
-	return 0;
-
-	/*
-	if (lpfr->Flags & (FR_FINDNEXT | FR_REPLACE | FR_REPLACEALL))
-	{
-		GetWindowText(hwnd, s_TText, s_TextSize);
-		textleng = strlen(s_TText);
-		findleng = strlen(lpfr->lpstrFindWhat);
-		repleng = strlen(lpfr->lpstrReplaceWith);
-
-		SendMessage(hwnd, EM_GETSEL, (WPARAM)&findsel0, (LPARAM)&findsel1);
-
-		if (lpfr->Flags & FR_REPLACEALL)
-		{
-			for (i = (textleng - findleng); i >= 0; i--)
-			{
-				if (gfind_mymemcmp(s_TText, i, lpfr->lpstrFindWhat, findleng, lpfr->Flags))
-					continue;
-
-				SendMessage(hwnd, EM_SETSEL, i, i + findleng);
-				SendMessage(hwnd, EM_REPLACESEL, 0, (LPARAM)lpfr->lpstrReplaceWith);
-				i += 1 - findleng;
-
-				if (findsel0 < i)
-					findsel0 += repleng-findleng;
-
-				if (findsel1 < i)
-					findsel1 += repleng-findleng;
-			}
-
-			SendMessage(hwnd, EM_SETSEL, findsel0, findsel1);
-			SendMessage(hwnd, EM_SCROLLCARET, 0, 0);
-			SendMessage(g_HWndFind, WM_CLOSE, 0, 0);
-			MessageBeep(0);
-			return 0;
-		}
-
-		i = findsel0;
-
-		if ((lpfr->Flags & FR_REPLACE) && (findsel1 - findsel0 == findleng) && (findsel0 <= textleng - findleng))
-		{
-			if (!gfind_mymemcmp(s_TText, i, lpfr->lpstrFindWhat, findleng, lpfr->Flags))
-			{
-				SendMessage(hwnd, EM_REPLACESEL, 0, (LPARAM)lpfr->lpstrReplaceWith);
-				GetWindowText(hwnd, s_TText, textleng); textleng = strlen(s_TText);
-			}
-		}
-
-		for (j = 0; j < textleng; j++)
-		{
-			if (lpfr->Flags & FR_DOWN)
-			{
-				i++;
-
-				if (i >= textleng)
-					i -= textleng;
-			}
-			else
-			{
-				i--;
-
-				if (i < 0)
-					i += textleng;
-			}
-
-			if (i <= (textleng - findleng) && !gfind_mymemcmp(s_TText, i, lpfr->lpstrFindWhat, findleng, lpfr->Flags))
-				break;
-		}
-
-		if (j >= textleng)
-		{
-			SendMessage(hwnd, EM_SETSEL, findsel0, findsel0);
-			MessageBeep(0);
-			return 0;
-		}
-
-		SendMessage(hwnd, EM_SETSEL, i, i + findleng);
-		SendMessage(hwnd, EM_SCROLLCARET, 0, 0);
-
-		{ // Move find/replace dialog out of way if covering highlighted text
-			RECT rfind, redit;
-			POINT p0, pchar;
-
-			GetWindowRect(g_HWndFind,&rfind);
-
-			p0.x = p0.y = 0;
-			ClientToScreen(hwnd, &p0);
-			SendMessage(hwnd, EM_GETRECT, 0, (LPARAM)&redit);
-			j = SendMessage(hwnd, EM_POSFROMCHAR, i, 0);
-			pchar.x = LOWORD(j);
-			pchar.y = HIWORD(j);
-			j = ((labs(s_popts.fontheight)*20) >> 4); // Estimated character height
-
-			if (p0.y+pchar.y+j >= rfind.top && p0.y+pchar.y < rfind.bottom)
-			{
-				if ((p0.y + pchar.y + (j >> 1)) * 2 < rfind.top + rfind.bottom)
-					MoveWindow(g_HWndFind, rfind.left, p0.y + pchar.y + j, rfind.right - rfind.left, rfind.bottom - rfind.top, 1);
-				else
-					MoveWindow(g_HWndFind, rfind.left, p0.y + pchar.y + rfind.top - rfind.bottom, rfind.right - rfind.left, rfind.bottom - rfind.top, 1);
-			}
-		}
-	}
-	*/
-
-	return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-static void findreplace(int isreplace)
-{
-	/*
-	if (s_FindMsg == 0) // register message on first call
-	{
-		s_FindMsg = RegisterWindowMessage(FINDMSGSTRING);
-		s_FindText[0] = 0;
-		s_ReplaceText[0] = 0;
-
-		s_FindReplaceInfo.lStructSize = sizeof(s_FindReplaceInfo);
-		s_FindReplaceInfo.hwndOwner = s_HWndMain;
-		s_FindReplaceInfo.hInstance = s_HInst;
-		s_FindReplaceInfo.Flags = FR_DOWN;
-		s_FindReplaceInfo.lpstrFindWhat = s_FindText;
-		s_FindReplaceInfo.lpstrReplaceWith = s_ReplaceText;
-		s_FindReplaceInfo.wFindWhatLen = sizeof(s_FindText);
-		s_FindReplaceInfo.wReplaceWithLen = sizeof(s_ReplaceText);
-		s_FindReplaceInfo.lCustData = 0;
-		s_FindReplaceInfo.lpfnHook = 0;
-		s_FindReplaceInfo.lpTemplateName = 0;
-	}
-	*/
-
-	//|FR_DOWN     |FR_NOUPDOWN   |FR_HIDEUPDOWN
-	//|FR_WHOLEWORD|FR_NOWHOLEWORD|FR_HIDEWHOLEWORD
-	//|FR_MATCHCASE|FR_NOMATCHCASE|FR_HIDEMATCHCASE
-	//|FR_FINDNEXT|FR_REPLACE|FR_REPLACEALL
-	//|FR_DIALOGTERM|FR_SHOWHELP|FR_ENABLEHOOK
-	//|FR_ENABLETEMPLATE|FR_ENABLETEMPLATEHANDLE
-	s_FindReplaceInfo.Flags &= ~FR_DIALOGTERM; // Need this to prevent bad things on 2nd call
-
-	// create either a find or a replace dialog
-	if (!isreplace)
-		s_HWndFind = FindText(&s_FindReplaceInfo);
-	else
-		s_HWndFind = ReplaceText(&s_FindReplaceInfo);
-
-	// setup for initial find/replace
-	GetWindowText(s_HWndEditor, s_TText, s_TextSize);
-	auto textleng = strlen(s_TText);
-	//SendMessage(hwnd, SCI_SETTARGETSTART, 0, 0);
-
-	auto currentPos = SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
-	SendMessage(s_HWndEditor, SCI_SETTARGETSTART, currentPos, 0);
-
-	SendMessage(s_HWndEditor, SCI_SETTARGETEND, textleng, 0);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-static void findnext(int isnext)
-{
-	if (s_FindText[0] == '\0' || s_FindMsg == 0)
-		return;
-
-	s_FindReplaceInfo.Flags &= ~(FR_DIALOGTERM | FR_REPLACE | FR_REPLACEALL);
-	s_FindReplaceInfo.Flags |= FR_FINDNEXT;
-
-	if (isnext)
-		s_FindReplaceInfo.Flags |= FR_DOWN;
-	else
-		s_FindReplaceInfo.Flags &= ~FR_DOWN;
-
-	findreplace_process(&s_FindReplaceInfo);
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 static void ResetWindows(int cmdshow)
@@ -2233,7 +2111,7 @@ static void ResetWindows(int cmdshow)
 	{
 		RECT rw;
 
-		SystemParametersInfo(SPI_GETWORKAREA, 0, &rw, 0);
+		::SystemParametersInfo(SPI_GETWORKAREA, 0, &rw, 0);
 		int x = ((rw.right - rw.left - s_xres) >> 1) + rw.left;
 		int y = ((rw.bottom - rw.top - s_yres) >> 1) + rw.top;
 
@@ -2241,7 +2119,11 @@ static void ResetWindows(int cmdshow)
 			WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SIZEBOX,
 			x, y, s_xres, s_yres, 0, 0, s_HInst, 0); //|WS_VISIBLE|WS_POPUPWINDOW|WS_CAPTION
 
-		ShowWindow(s_HWndMain, cmdshow);
+		// set window icon
+		HICON hIcon = LoadIcon(s_HInst, MAKEINTRESOURCE(IDI_ICON1));
+		::SendMessage(s_HWndMain, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+		::SendMessage(s_HWndMain, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+		::ShowWindow(s_HWndMain, cmdshow);
 	}
 
 	guiflags = WS_VISIBLE | WS_CHILD | WS_VSCROLL; //|WS_HSCROLL|WS_CAPTION|WS_SIZEBOX|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_SYSMENU;
@@ -2321,7 +2203,9 @@ static void ResetWindows(int cmdshow)
 			x0[3], y0[3], x1[3], y1[3],
 			s_HWndMain, (HMENU)102, s_HInst, 0);
 
-		// CPP lexer
+		SendMessage(s_HWndEditor, EM_LIMITTEXT, s_TextSize - 1, 0);
+
+		// set lexer for syntax highlighting
 		SendMessage(s_HWndEditor, SCI_SETLEXER, SCLEX_CPP, 0);
 
 		// Set number of style bits to use
@@ -2375,28 +2259,27 @@ static void ProcessCommand(int id)
 {
 	switch (id)
 	{
-	case IDM_FILE_NEW_BLANK:
-		if (SaveIfUnsure() != IDCANCEL)
-			NewFile(0);
+	///////////////////////////////////////////////////////////////////////////
+	case IDM_FILE_NEW_BLANK: NewFile(0); break;
+	case IDM_FILE_NEW_GLSL_MINIMAL: NewFile(1); break;
+	case IDM_FILE_NEW_GLSL: NewFile(2); break;
+	case IDM_FILE_NEW_ARB_ASM: NewFile(3); break;
 
-		break;
+	///////////////////////////////////////////////////////////////////////////
+	case IDM_FILE_OPEN: LoadFileDialog(); break;
 
-	case IDM_FILE_OPEN:
-		if (SaveIfUnsure() != IDCANCEL)
-			LoadFileDialog();
-
-		break;
-
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_FILE_SAVE: SaveFile(s_CurrentFilename); break;
 	case IDM_FILE_SAVEAS: SaveFileDialog(); break;
-		break;
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_FILE_EXIT:
 		if (SaveIfUnsure() != IDCANCEL)
 			::PostQuitMessage(0);
 
 		break;
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_EDIT_UNDO: SendEditor(WM_UNDO); break;
 	case IDM_EDIT_REDO: SendEditor(SCI_REDO); break;
 	case IDM_EDIT_CUT: SendEditor(WM_CUT); break;
@@ -2405,36 +2288,38 @@ static void ProcessCommand(int id)
 	case IDM_EDIT_DELETE: SendEditor(WM_CLEAR); break;
 	case IDM_EDIT_SELECTALL: SendEditor(SCI_SELECTALL); break;
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_EDIT_FIND:
+		if (IsWindow(s_HWndFind))
+			break;
+
 		s_HWndFind = FindText(&s_FindReplaceInfo);
 		break;
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_EDIT_FIND_NEXT:
 	{
-		/*
-		int findleng = strlen(s_FindReplaceInfo.lpstrFindWhat);
-		int pos = SendMessage(s_HWndEditor, SCI_SEARCHINTARGET, findleng, (LPARAM)s_FindReplaceInfo.lpstrFindWhat);
+		if (s_FindText[0] == '\0')
+			return;
 
-		SendMessage(s_HWndEditor, SCI_SETSEL, pos, pos + findleng);
-
-		// reset target
-		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
-		auto textleng = strlen(s_TText);
-		//auto currentPos = SendMessage(hwnd, SCI_GETCURRENTPOS, 0, 0);
-		//SendMessage(hwnd, SCI_SETTARGETSTART, currentPos, 0);
-		SendMessage(s_HWndEditor, SCI_SETTARGETSTART, pos + findleng, 0);
-		SendMessage(s_HWndEditor, SCI_SETTARGETEND, textleng, 0);
-		*/
-
-		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		::GetWindowText(s_HWndEditor, s_TText, s_TextSize);
 		auto textLength = strlen(s_TText);
-		//auto currentCursorPos = SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+		auto currentCursorPos = ::SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
 
 		TextToFind textToFind;
 		textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
-		textToFind.chrg.cpMin = s_CurrentFindPos;
+		textToFind.chrg.cpMin = currentCursorPos;
 		textToFind.chrg.cpMax = textLength;
+
 		int flags = 0;
+
+		// possible flags...
+		//|FR_DOWN     |FR_NOUPDOWN   |FR_HIDEUPDOWN
+		//|FR_WHOLEWORD|FR_NOWHOLEWORD|FR_HIDEWHOLEWORD
+		//|FR_MATCHCASE|FR_NOMATCHCASE|FR_HIDEMATCHCASE
+		//|FR_FINDNEXT|FR_REPLACE|FR_REPLACEALL
+		//|FR_DIALOGTERM|FR_SHOWHELP|FR_ENABLEHOOK
+		//|FR_ENABLETEMPLATE|FR_ENABLETEMPLATEHANDLE
 
 		if (s_FindReplaceInfo.Flags & FR_MATCHCASE)
 			flags |= SCFIND_MATCHCASE;
@@ -2445,28 +2330,84 @@ static void ProcessCommand(int id)
 		if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
 		{
 			::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMin, textToFind.chrgText.cpMax);
-			s_CurrentFindPos = textToFind.chrgText.cpMax;
+
+			// Move find/replace dialog out of way if covering highlighted text
+			// FIXME: not currently working with new Scintilla editor
+			/*
+			{
+				RECT rfind, redit;
+				POINT p0, pchar;
+
+				::GetWindowRect(s_HWndFind, &rfind);
+
+				p0.x = 0;
+				p0.y = 0;
+				::ClientToScreen(s_HWndEditor, &p0);
+				::SendMessage(s_HWndEditor, EM_GETRECT, 0, (LPARAM)&redit);
+				int j = SendMessage(s_HWndEditor, EM_POSFROMCHAR, textToFind.chrgText.cpMin, 0);
+				pchar.x = LOWORD(j);
+				pchar.y = HIWORD(j);
+				j = ((labs(s_AppOptions.fontheight) * 20) >> 4); // Estimated character height
+
+				if ((p0.y + pchar.y + j) >= rfind.top && (p0.y + pchar.y) < rfind.bottom)
+				{
+					if (((p0.y + pchar.y + (j >> 1)) * 2) < (rfind.top + rfind.bottom))
+						::MoveWindow(s_HWndFind, rfind.left, p0.y + pchar.y + j, rfind.right - rfind.left, rfind.bottom - rfind.top, 1);
+					else
+						::MoveWindow(s_HWndFind, rfind.left, p0.y + pchar.y + rfind.top - rfind.bottom, rfind.right - rfind.left, rfind.bottom - rfind.top, 1);
+				}
+			}
+			*/
 		}
 		else
 		{
-			::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
-			s_CurrentFindPos = 0;
+			auto choice = ::MessageBox((IsWindow(s_HWndFind) ? s_HWndFind : s_HWndMain),
+				"Continue searching from the beginning?", "End of text reached", MB_YESNO);
+
+			if (choice == IDYES)
+			{
+				// retry from the beginning
+				::SendMessage(s_HWndEditor, SCI_SETCURRENTPOS, 0, 0);
+				textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+				textToFind.chrg.cpMin = 0;
+				textToFind.chrg.cpMax = textLength;
+
+				if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
+					::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMin, textToFind.chrgText.cpMax);
+				else
+					::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
+			}
+			//else if (choice == IDNO)
+			//	::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
 		}
 
 		break;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_EDIT_FIND_PREVIOUS:
 	{
-		GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		if (s_FindText[0] == '\0')
+			return;
+
+		::GetWindowText(s_HWndEditor, s_TText, s_TextSize);
 		auto textLength = strlen(s_TText);
-		//auto currentCursorPos = SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+		auto currentCursorPos = ::SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
 
 		TextToFind textToFind;
 		textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
-		textToFind.chrg.cpMin = 0;
-		textToFind.chrg.cpMax = s_CurrentFindPos;
+		textToFind.chrg.cpMin = currentCursorPos;
+		textToFind.chrg.cpMax = 0;
+
 		int flags = 0;
+
+		// possible flags...
+		//|FR_DOWN     |FR_NOUPDOWN   |FR_HIDEUPDOWN
+		//|FR_WHOLEWORD|FR_NOWHOLEWORD|FR_HIDEWHOLEWORD
+		//|FR_MATCHCASE|FR_NOMATCHCASE|FR_HIDEMATCHCASE
+		//|FR_FINDNEXT|FR_REPLACE|FR_REPLACEALL
+		//|FR_DIALOGTERM|FR_SHOWHELP|FR_ENABLEHOOK
+		//|FR_ENABLETEMPLATE|FR_ENABLETEMPLATEHANDLE
 
 		if (s_FindReplaceInfo.Flags & FR_MATCHCASE)
 			flags |= SCFIND_MATCHCASE;
@@ -2476,28 +2417,111 @@ static void ProcessCommand(int id)
 
 		if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
 		{
-			::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMin, textToFind.chrgText.cpMax);
-			s_CurrentFindPos = textToFind.chrgText.cpMin;
+			::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMax, textToFind.chrgText.cpMin);
 		}
 		else
 		{
-			::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
-			s_CurrentFindPos = textLength;
+			auto choice = ::MessageBox((IsWindow(s_HWndFind) ? s_HWndFind : s_HWndMain),
+				"Continue searching from the end?", "Start of text reached", MB_YESNO);
+
+			if (choice == IDYES)
+			{
+				// retry from the end
+				::SendMessage(s_HWndEditor, SCI_SETCURRENTPOS, 0, 0);
+				textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+				textToFind.chrg.cpMin = textLength;
+				textToFind.chrg.cpMax = 0;
+
+				if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
+					::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMax, textToFind.chrgText.cpMin);
+				else
+					::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
+			}
+			//else if(choice == IDNO)
+			//	::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
 		}
 
 		break;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_EDIT_REPLACE:
 		s_HWndFind = ReplaceText(&s_FindReplaceInfo);
 		break;
 
+	///////////////////////////////////////////////////////////////////////////
+	case IDM_EDIT_REPLACE_SELECTION:
+	{
+		auto startSel = ::SendMessage(s_HWndEditor, SCI_GETSELECTIONSTART, 0, 0);
+		auto endSel = ::SendMessage(s_HWndEditor, SCI_GETSELECTIONEND, 0, 0);
+
+		if (startSel != endSel)
+			::SendMessage(s_HWndEditor, SCI_REPLACESEL, 0, (LPARAM)s_FindReplaceInfo.lpstrReplaceWith);
+
+		break;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	case IDM_EDIT_REPLACE_ALL:
+	{
+		// confirm with the user first
+		auto choice = ::MessageBox(s_HWndFind,
+			"Are you sure you want to replace all occurrences?", "Replace all", MB_YESNO);
+
+		if (choice != IDYES)
+			break;
+
+		::GetWindowText(s_HWndEditor, s_TText, s_TextSize);
+		auto textLength = strlen(s_TText);
+		auto currentCursorPos = ::SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+
+		TextToFind textToFind;
+		textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+		textToFind.chrg.cpMin = 0;
+		textToFind.chrg.cpMax = textLength;
+
+		int flags = 0;
+
+		if (s_FindReplaceInfo.Flags & FR_MATCHCASE)
+			flags |= SCFIND_MATCHCASE;
+
+		if (s_FindReplaceInfo.Flags & FR_WHOLEWORD)
+			flags |= SCFIND_WHOLEWORD;
+
+		while (true)
+		{
+			if (::SendMessage(s_HWndEditor, SCI_FINDTEXT, flags, (LPARAM)&textToFind) >= 0)
+			{
+				::SendMessage(s_HWndEditor, SCI_SETSEL, textToFind.chrgText.cpMax, textToFind.chrgText.cpMin);
+				::SendMessage(s_HWndEditor, SCI_REPLACESEL, 0, (LPARAM)s_FindReplaceInfo.lpstrReplaceWith);
+
+				currentCursorPos = ::SendMessage(s_HWndEditor, SCI_GETCURRENTPOS, 0, 0);
+
+				// setup for next iteration
+				textToFind.lpstrText = s_FindReplaceInfo.lpstrFindWhat;
+				textToFind.chrg.cpMin = currentCursorPos;
+				textToFind.chrg.cpMax = textLength;
+			}
+			else // done
+			{
+				::MessageBox(s_HWndFind, "Done.", "Replace all", 0);
+				::SendMessage(s_HWndEditor, SCI_SETSEL, 0, 0);
+				::SendMessage(s_HWndEditor, SCI_SETCURRENTPOS, 0, 0);
+				break;
+			}
+		}
+
+		break;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_OPTIONS_FULLSCREEN:
 		s_AppOptions.fullscreen = !s_AppOptions.fullscreen;
 		::CheckMenuItem(::GetMenu(s_HWndMain), IDM_OPTIONS_FULLSCREEN, (s_AppOptions.fullscreen ? MF_CHECKED : MF_UNCHECKED));
 		ResetWindows(SW_NORMAL);
 		break;
 
+	///////////////////////////////////////////////////////////////////////////
 	case IDM_HELP_ABOUT:
 		HelpAbout();
 		break;
@@ -2529,13 +2553,24 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		LPFINDREPLACE lpfr = (LPFINDREPLACE)lParam;
 
 		if (lpfr->Flags & FR_DIALOGTERM) // dialog closed
+		{
 			s_HWndFind = nullptr;
+		}
 		else if (lpfr->Flags & FR_FINDNEXT)
 		{
 			if (lpfr->Flags & FR_DOWN) // searching down
 				ProcessCommand(IDM_EDIT_FIND_NEXT);
 			else // searching up
 				ProcessCommand(IDM_EDIT_FIND_PREVIOUS);
+		}
+		else if (lpfr->Flags & FR_REPLACE)
+		{
+			ProcessCommand(IDM_EDIT_REPLACE_SELECTION);
+			ProcessCommand(IDM_EDIT_FIND_NEXT);
+		}
+		else if (lpfr->Flags & FR_REPLACEALL)
+		{
+			ProcessCommand(IDM_EDIT_REPLACE_ALL);
 		}
 
 		return 0;
@@ -2552,11 +2587,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 			s_dbstatus += 1;
 
 		p0.x = p0.y = 0;
-		ClientToScreen(s_HWndRender, &p0);
-		GetCursorPos(&p1);
+		::ClientToScreen(s_HWndRender, &p0);
+		::GetCursorPos(&p1);
 
 		if (((unsigned)(p1.x - p0.x) < (unsigned)s_RenderWidth) && ((unsigned)(p1.y - p0.y) < (unsigned)s_RenderHeight))
-			SetFocus(s_HWndMain);
+			::SetFocus(s_HWndMain);
 
 		break;
 
@@ -2578,19 +2613,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_KEYDOWN:
 		UpdateShifts(lParam, 1);
 		i = ((lParam >> 16) & 127) + ((lParam >> 17) & 128);
-		//if (i == 1 && s_mehax) PostQuitMessage(0);
-		if (s_dkeystatus[i] == 0.0) s_dkeystatus[i] = 1.0;
-		//if ((wParam & 255) == VK_F1) { helpabout(); return(0); }
-		//if ((wParam & 255) == VK_F3) { findnext((s_ShiftKeyStatus & 0x30000) == 0); return(0); }
-		break;
 
-	//case WM_CHAR:
-		//if ((wParam & 255) == 10) { s_DoRecompile = 3; return 0; } // Ctrl+Enter
-		//if ((wParam & 255) == 0x0c) { LoadFileDialog(s_HWndMain); return 0; } // Ctrl+L
-		//if ((wParam & 255) == 0x13) { if (s_SaveFilename[0]) SaveFile(s_SaveFilename); else SaveFileDialog(s_HWndMain); return 0; } // Ctrl+S
-		//if ((wParam & 255) == 0x06) { findreplace(0); s_ShiftKeyStatus = 0; return 0; } // Ctrl+F
-		//if ((wParam & 255) == 0x12) { findreplace(1); s_ShiftKeyStatus = 0; return 0; } // Ctrl+R
-	//	return 0;
+		if (s_dkeystatus[i] == 0.0)
+			s_dkeystatus[i] = 1.0;
+
+		break;
 
 	case WM_SIZE:
 		if (hWnd != s_HWndMain)
@@ -2620,17 +2647,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 		s_ShiftKeyStatus = 0;
 		return 0;
 
-#if 0
-	case WM_CTLCOLOREDIT:
-		SetTextColor(wParam,0xc0c0c0);
-		SetBkColor(wParam,0x404040);
-		return(GetStockObject(DKGRAY_BRUSH));
-	case WM_CTLCOLORSTATIC:
-		SetTextColor(wParam,0xc0c0c0);
-		SetBkColor(wParam,0x404040);
-		return(GetStockObject(DKGRAY_BRUSH));
-#endif
-
 	case WM_CLOSE:
 		if (SaveIfUnsure() != IDCANCEL)
 		{
@@ -2643,134 +2659,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPara
 	case WM_COMMAND:
 		ProcessCommand(LOWORD(wParam));
 		CheckMenus();
-
-		/*
-		switch (LOWORD(wParam)) // process menu
-		{
-		case MENU_FILENEW+0: case MENU_FILENEW+1: case MENU_FILENEW+2: case MENU_FILENEW+3:
-			NewFile(LOWORD(wParam) - MENU_FILENEW);
-			break;
-		case MENU_FILEOPEN:    LoadFileDialog(hWnd); break;
-		case MENU_FILESAVE:    if (s_SaveFilename[0]) { SaveFile(s_SaveFilename); break; } //no break intentional
-		case MENU_FILESAVEAS:  SaveFileDialog(hWnd); break;
-		case MENU_FILEEXIT:    if (passasksave()) { PostQuitMessage(0); } break;
-		case MENU_EDITFIND:    //findreplace(s_HWndEditor, 0); findreplace(0); break;
-		case MENU_EDITFINDNEXT: findnext(1); break;
-		case MENU_EDITFINDPREV: findnext(0); break;
-		case MENU_EDITREPLACE: findreplace(1); break;
-		case MENU_COMPCONTENT: s_popts.compctrlent ^= 1; if (!s_popts.compctrlent) s_DoRecompile = 3; CheckMenuItem(s_HMenu,MENU_COMPCONTENT,s_popts.compctrlent*MF_CHECKED); break;
-		case MENU_EVALHIGHLIGHT:
-			{
-				int i0, i1;
-				SendMessage(s_HWndEditor, EM_GETSEL, (unsigned)&i0, (unsigned)&i1);
-
-				if (i0 < i1)
-				{
-					GetWindowText(s_HWndEditor,s_TText,s_TextSize);
-
-					if (eval_highlight(&s_TText[i0], i1 - i0))
-						MessageBeep(64);
-					else
-						MessageBeep(16);
-				}
-			}
-
-			break;
-
-		case MENU_RENDPLC+0: case MENU_RENDPLC+1: case MENU_RENDPLC+2: case MENU_RENDPLC+3:
-			s_popts.rendcorn = LOWORD(wParam) - MENU_RENDPLC;
-			s_popts.fullscreen = 0;
-
-			for (i = 0; i < 4; i++)
-				CheckMenuItem(s_HMenu, MENU_RENDPLC + i, (LOWORD(wParam) == MENU_RENDPLC + i)*MF_CHECKED);
-
-			CheckMenuItem(s_HMenu, MENU_FULLSCREEN, s_popts.fullscreen*MF_CHECKED);
-			ResetWindows(SW_NORMAL);
-			break;
-
-		case MENU_FULLSCREEN:
-			s_popts.fullscreen = !s_popts.fullscreen;
-			CheckMenuItem(s_HMenu, MENU_FULLSCREEN, s_popts.fullscreen*MF_CHECKED);
-			ResetWindows(SW_NORMAL);
-			break;
-
-		case MENU_CLEARBUFFER:
-			s_popts.clearbuffer = !s_popts.clearbuffer;
-			CheckMenuItem(s_HMenu, MENU_CLEARBUFFER, s_popts.clearbuffer*MF_CHECKED);
-			ResetWindows(SW_NORMAL);
-			break;
-
-		case MENU_FONT:
-			{
-				CHOOSEFONT cf;
-				static LOGFONT lf;
-
-				memset(&cf, 0, sizeof(cf));
-				cf.lStructSize = sizeof(cf);
-				cf.hwndOwner = hWnd;
-				cf.lpLogFont = &lf;
-				lf.lfHeight = s_popts.fontheight;
-				lf.lfWidth = s_popts.fontwidth;
-				strcpy(lf.lfFaceName,s_popts.fontname);
-				cf.Flags = CF_SCREENFONTS | CF_FIXEDPITCHONLY | CF_INITTOLOGFONTSTRUCT | CF_NOSTYLESEL;
-
-				if (ChooseFont(&cf))
-				{
-					if (lf.lfFaceName[0])
-					{
-						if (s_HFont)
-							DeleteObject(s_HFont);
-
-						s_popts.fontheight = lf.lfHeight;
-						s_popts.fontwidth = lf.lfWidth;
-						strcpy(s_popts.fontname, lf.lfFaceName);
-
-						s_popts.sepchar = '-'; //Many XP fonts do not have solid hyphen char :/
-						//     if (!stricmp(popts.fontname,"Consolas"      )) popts.sepchar = 6; //also 151
-						//else if (!stricmp(popts.fontname,"Courier"       )) popts.sepchar = 6;
-						//else if (!stricmp(popts.fontname,"Courier New"   )) popts.sepchar = 151; //also 6
-						//else if (!stricmp(popts.fontname,"Fixedsys"      )) popts.sepchar = 6;
-						//else if (!stricmp(popts.fontname,"Lucida Console")) popts.sepchar = 6; //also 151
-						//else if (!stricmp(popts.fontname,"Terminal"      )) popts.sepchar = 196;
-						//else                                                popts.sepchar = '-';
-
-						s_HFont = CreateFont(s_popts.fontheight, s_popts.fontwidth, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, s_popts.fontname);
-
-						SendMessage(s_HWndConsole, WM_SETFONT, (WPARAM)s_HFont, 0);
-						ShowWindow(s_HWndConsole, SW_HIDE);
-						UpdateWindow(s_HWndConsole);
-						ShowWindow(s_HWndConsole, SW_SHOWNORMAL);
-						SendMessage(s_HWndEditor, WM_SETFONT, (WPARAM)s_HFont, 0);
-						ShowWindow(s_HWndEditor, SW_HIDE);
-						UpdateWindow(s_HWndEditor);
-						ShowWindow(s_HWndEditor, SW_SHOWNORMAL);
-						ResetWindows(SW_NORMAL);
-					}
-				}
-			}
-
-			break;
-
-		case MENU_HELPABOUT:
-			helpabout();
-			break;
-		}
-
-		switch (HIWORD(wParam))
-		{
-			//case EN_CHANGE: //break; //Edit control's contents will change
-			//case EN_VSCROLL: updatelines(0); break; //doesn't get triggered by mouse dragging; must use WM_PAINT in nhWndEdit instead
-			case EN_UPDATE: // Edit control's contents have changed
-				//if ((HWND)lParam == hWndEdit)
-				//	updatelines(1); //text changed in edit window (would be cheaper than calling strcmp :P)
-
-				break;
-
-			default:
-				break;
-		}
-		*/
-
 		return 0;
 
 	case WM_NOTIFY:
@@ -2977,6 +2865,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		*/
 
+		// set resolution
 		if (argv[i][1] >= '0' && argv[i][1] <= '9')
 		{
 			int k = 0;
@@ -3017,7 +2906,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	s_BadLineBits = (char*)malloc((s_TextSize + 7) >> 3); if (!s_BadLineBits) { MessageBox(s_HWndMain, "malloc failed", s_ProgramName, MB_OK); return 1; }
 	memset(s_BadLineBits, 0, (s_TextSize + 7) >> 3);
 
-
 	auto hAccTable = RegisterResources(hInstance);
 
 	ResetWindows(nCmdShow);
@@ -3052,7 +2940,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	if (glewInit() != GLEW_OK)
 	{
-		MessageBox(s_HWndMain, "OpenGL failed to initialize", s_ProgramName, MB_OK);
+		MessageBox(s_HWndMain, "OpenGL failed to initialize.", s_ProgramName, MB_OK);
 		return 1;
 	}
 
@@ -3083,7 +2971,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//   glGetIntegerv(0x9049 /*NV cur mem kb*/,&i); sprintf(buf,"NV_CUR_MEM=%dKBy",i); kputs(buf,1); //991504
 	//}
 
-	//kputs(glGetString(GL_EXTENSIONS),1); //List too long!
+	//kputs(glGetString(GL_EXTENSIONS), 1); // List too long!
 
 	kputs("----------------------------------------", 1);
 
@@ -3166,7 +3054,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		// update perspective
 		//mygluPerspective(gfov, (float)oglxres / (float)oglyres, 0.1, 1000.0);
-
 		{
 			double fovy = s_FOV;
 			double xy = s_RenderWidth / s_RenderHeight;
@@ -3203,8 +3090,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		strcpy(s_OText, s_Text);
 
-		//g_OTSecN = g_TSecN;
-		//memcpy(g_OTSec, g_TSec, g_TSecN*sizeof(tsec_t));
 		g_OldTextSections = g_TextSections;
 
 		SwapBuffers(hDC);
@@ -3233,38 +3118,22 @@ quitit:
 	DisableOpenGL(s_HWndRender, hDC, hRC);
 	DestroyWindow(s_HWndMain);
 
-	//if (!s_mehax)
 	SaveIni();
 
 	if (s_BadLineBits)
-	{
 		free(s_BadLineBits);
-		s_BadLineBits = 0;
-	}
 
 	if (s_Line)
-	{
 		free(s_Line);
-		s_Line = 0;
-	}
 
 	if (s_TText)
-	{
 		free(s_TText);
-		s_TText = 0;
-	}
 
 	if (s_OText)
-	{
 		free(s_OText);
-		s_OText = 0;
-	}
 
 	if (s_Text)
-	{
 		free(s_Text);
-		s_Text = 0;
-	}
 
 	return 0;
 }

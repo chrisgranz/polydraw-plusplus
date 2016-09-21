@@ -138,8 +138,6 @@ extern int g_CurrentShader;
 
 extern GLint g_Queries[1];
 
-//extern double g_dbstatus;
-//extern double g_dkeystatus[256];
 extern double g_DNumFrames;
 extern __int64 g_qper;
 extern __int64 g_qtim0;
@@ -164,6 +162,7 @@ double MIDIPlayNote(double chn, double frq, double vol);
 ///////////////////////////////////////////////////////////////////////////////
 void noiseinit();
 
+void CreateEmptyTexture(int itex, int xs, int ys, int zs, int icoltype);
 void SetEvalVars(double dxres, double dyres, double dmousx, double dmousy, double dbstatus, double dkeystatus[256]);
 EVALFUNC CompileEVALFunctionWithExt(std::string text);
 

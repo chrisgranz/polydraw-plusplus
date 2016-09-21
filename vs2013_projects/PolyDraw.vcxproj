@@ -93,6 +93,10 @@
   <ItemGroup>
     <ResourceCompile Include="..\include\PolyDraw.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\include\fractal.ico" />
+    <Image Include="..\include\fractal.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

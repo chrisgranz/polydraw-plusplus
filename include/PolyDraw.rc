@@ -1,8 +1,9 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include <windows.h>
-#include "resource.h"
 
+#include <windows.h>
+
+#include "resource.h"
 /////////////////////////////////////////////////////////////////////////////
 // English (United States) resources
 
@@ -116,6 +117,22 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON1               ICON                    "fractal.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// PNG
+//
+
+IDB_PNG1                PNG                     "fractal.png"
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
