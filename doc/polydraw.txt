@@ -13,7 +13,7 @@ Authors:
    Ken Silverman (http://advsys.net/ken):
       EVAL compiler, GUI cleanup, fixes, enhancements
 
-   Tigrou (tigrou.ind@gmail.com):
+   Tigrou (tigrou dot ind at gmail.com):
       Original author & concept.
       His original release on January 2, 2010 can be found here:
          http://pouet.net/prod.php?which=54245
