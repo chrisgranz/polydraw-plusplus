@@ -1,3 +1,6 @@
+![screenshot1]
+[screenshot1]: https://cloud.githubusercontent.com/assets/1275808/18735682/be6d8cfa-804d-11e6-9b7c-61fef4f0f7f4.png "Screenshot 1"
+
 PolyDraw++
 An OpenGL/GLSL live scripting tool
 
