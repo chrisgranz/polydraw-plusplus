@@ -277,7 +277,7 @@ double __cdecl qglAlphaDisable(double d)
 ///////////////////////////////////////////////////////////////////////////////
 double __cdecl qglQuad(double alpha)
 {
-	glPushAttrib(GL_DEPTH_BUFFER_BIT|GL_COLOR_BUFFER_BIT);
+	glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); glOrtho(0, s_dxres, s_dyres, 0, -1, 1);
 	glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
@@ -290,7 +290,7 @@ double __cdecl qglQuad(double alpha)
 	glTexCoord2f(0, 1); glVertex2f(0, 0);
 	glTexCoord2f(1, 1); glVertex2f(s_dxres, 0);
 	glTexCoord2f(1, 0); glVertex2f(s_dxres, s_dyres);
-	glTexCoord2f(0, 0); glVertex2f(0, s_dxres);
+	glTexCoord2f(0, 0); glVertex2f(0, s_dyres);
 	glEnd();
 
 	glMatrixMode(GL_PROJECTION); glPopMatrix();
