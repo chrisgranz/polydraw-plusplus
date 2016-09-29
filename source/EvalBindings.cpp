@@ -287,10 +287,10 @@ double __cdecl qglQuad(double alpha)
 	if (alpha == 1.0) { glDisable(GL_BLEND); }
 
 	glBegin(GL_QUADS);
-	glTexCoord2f(0, 1); glVertex2f(0, 0);
-	glTexCoord2f(1, 1); glVertex2f(s_dxres, 0);
-	glTexCoord2f(1, 0); glVertex2f(s_dxres, s_dyres);
-	glTexCoord2f(0, 0); glVertex2f(0, s_dyres);
+	glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 0.0f);
+	glTexCoord2f(1.0f, 1.0f); glVertex2f((float)s_dxres, 0.0f);
+	glTexCoord2f(1.0f, 0.0f); glVertex2f((float)s_dxres, (float)s_dyres);
+	glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, (float)s_dyres);
 	glEnd();
 
 	glMatrixMode(GL_PROJECTION); glPopMatrix();
@@ -568,7 +568,7 @@ double __cdecl qglEndCapture(double dtex)
 
 	if (g_LastCapture)
 	{
-		glViewport(0, 0, s_dxres, s_dyres);
+		glViewport(0, 0, (GLsizei)s_dxres, (GLsizei)s_dyres);
 		glMatrixMode(GL_PROJECTION); glPopMatrix();
 		glMatrixMode(GL_MODELVIEW); glPopMatrix();
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); // restore
@@ -583,7 +583,7 @@ double __cdecl qglEndCapture(double dtex)
 
 	g_Textures[itex].name[0] = '\0';
 
-	glViewport(0, 0, s_dxres, s_dyres);
+	glViewport(0, 0, (GLsizei)s_dxres, (GLsizei)s_dyres);
 	glMatrixMode(GL_PROJECTION); glPopMatrix();
 	glMatrixMode(GL_MODELVIEW); glPopMatrix();
 
@@ -936,16 +936,16 @@ double ksetfov(double fov)
 ///////////////////////////////////////////////////////////////////////////////
 double kglProgramLocalParam(double ind, double a, double b, double c, double d)
 {
-	glProgramLocalParameter4fARB(GL_VERTEX_PROGRAM_ARB, (unsigned)ind, a, b, c, d);
-	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, (unsigned)ind, a, b, c, d);
+	glProgramLocalParameter4fARB(GL_VERTEX_PROGRAM_ARB, (unsigned)ind, (float)a, (float)b, (float)c, (float)d);
+	glProgramLocalParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, (unsigned)ind, (float)a, (float)b, (float)c, (float)d);
 	return 0.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 double kglProgramEnvParam(double ind, double a, double b, double c, double d)
 {
-	glProgramEnvParameter4fARB(GL_VERTEX_PROGRAM_ARB, (unsigned)ind, a, b, c, d);
-	glProgramEnvParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, (unsigned)ind, a, b, c, d);
+	glProgramEnvParameter4fARB(GL_VERTEX_PROGRAM_ARB, (unsigned)ind, (float)a, (float)b, (float)c, (float)d);
+	glProgramEnvParameter4fARB(GL_FRAGMENT_PROGRAM_ARB, (unsigned)ind, (float)a, (float)b, (float)c, (float)d);
 	return 0.0;
 }
 
